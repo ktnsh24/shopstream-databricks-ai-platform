@@ -1,0 +1,167 @@
+bundle:
+  name: shopstream-databricks-ai-platform
+
+# ---------------------------------------------------------------------------
+# Variables
+# ---------------------------------------------------------------------------
+variables:
+  DATABRICKS_HOST:
+    description: Databricks workspace URL (e.g. https://adb-xxx.azuredatabricks.net)
+  STORAGE_ACCOUNT:
+    description: ADLS Gen2 storage account name
+    default: helixprodadls
+  ALERT_EMAIL:
+    description: Email for job failure alerts
+    default: team@shopstream.example
+
+# ---------------------------------------------------------------------------
+# Target — single prod environment
+#
+# DATA PLATFORM PIPELINES (bronze / silver / gold) ARE NOT IN THIS BUNDLE.
+# They are owned and deployed by shopstream-databricks-data-platform (wife's repo).
+# This bundle deploys only: ML training jobs, AI agent, and API gateway.
+# Attempting to add data_platform pipelines here will be rejected in code review.
+# ---------------------------------------------------------------------------
+targets:
+  prod:
+    mode: production
+    workspace:
+      host: ${var.DATABRICKS_HOST}
+
+# ---------------------------------------------------------------------------
+# Resources — ML, AI, and API only
+# ---------------------------------------------------------------------------
+resources:
+
+  jobs:
+
+    # ── ML: train forecast model ────────────────────────────────────────────
+    train_forecast:
+      name: helix_train_forecast
+      # Runs monthly — full retrain of the revenue forecast LightGBM model.
+      # Reads from helix_gold.revenue.fct_revenue_daily (written by wife's pipelines).
+      schedule:
+        quartz_cron_expression: "0 0 2 1 * ?"   # 02:00 UTC on the 1st of every month
+        timezone_id: UTC
+      job_clusters:
+        - job_cluster_key: ml_cluster
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 2
+            autotermination_minutes: 60
+      tasks:
+        - task_key: train
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: train_forecast
+          job_cluster_key: ml_cluster
+        - task_key: evaluate
+          depends_on:
+            - task_key: train
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: evaluate_forecast
+          job_cluster_key: ml_cluster
+        - task_key: promote
+          depends_on:
+            - task_key: evaluate
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: promote_model
+          job_cluster_key: ml_cluster
+      email_notifications:
+        on_failure:
+          - ${var.ALERT_EMAIL}
+
+    # ── ML: train churn model ──────────────────────────────────────────────
+    train_churn:
+      name: helix_train_churn
+      # Runs monthly — full retrain of the customer churn LightGBM model.
+      # Reads from helix_gold.customers.fct_customer_metrics.
+      schedule:
+        quartz_cron_expression: "0 0 3 1 * ?"   # 03:00 UTC on the 1st of every month
+        timezone_id: UTC
+      job_clusters:
+        - job_cluster_key: ml_cluster
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 2
+            autotermination_minutes: 60
+      tasks:
+        - task_key: train
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: train_churn
+          job_cluster_key: ml_cluster
+        - task_key: evaluate
+          depends_on:
+            - task_key: train
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: evaluate_churn
+          job_cluster_key: ml_cluster
+        - task_key: promote
+          depends_on:
+            - task_key: evaluate
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: promote_model
+          job_cluster_key: ml_cluster
+      email_notifications:
+        on_failure:
+          - ${var.ALERT_EMAIL}
+
+    # ── ML: drift monitoring ───────────────────────────────────────────────
+    drift_monitoring:
+      name: helix_drift_monitoring
+      # Runs daily — checks whether model predictions are drifting.
+      # Triggers retraining job automatically if drift is detected.
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"  # 06:30 UTC daily
+        timezone_id: UTC
+      tasks:
+        - task_key: detect_drift
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: run_drift_monitoring
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+            autotermination_minutes: 30
+      email_notifications:
+        on_failure:
+          - ${var.ALERT_EMAIL}
+
+    # ── AI: embed and index documents ─────────────────────────────────────
+    ingest_documents:
+      name: helix_ingest_documents
+      # Run manually when new documents are uploaded to ADLS Gen2.
+      # Chunks documents → embeds them → writes to helix_gold.documents.chunks
+      # → syncs Vector Search index.
+      tasks:
+        - task_key: embed
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: embed_documents
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+            autotermination_minutes: 30
+        - task_key: index
+          depends_on:
+            - task_key: embed
+          python_wheel_task:
+            package_name: shopstream_databricks_ai_platform
+            entry_point: create_vector_index
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+            autotermination_minutes: 30
+      email_notifications:
+        on_failure:
+          - ${var.ALERT_EMAIL}

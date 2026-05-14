@@ -1,0 +1,49 @@
+name: monitor_inference_tables
+description: "Daily monitoring of inference tables for all model serving endpoints"
+
+tasks:
+  - task_key: monitor_forecast_model
+    description: "Query and alert on forecast model inference table"
+    python_wheel_task:
+      package_name: shopstream_databricks_ai_platform
+      entry_point: ml_platform.monitoring.inference_monitor:main
+      parameters:
+        - model_name=forecast_model
+        - alert_on_latency_p95_ms=500
+        - alert_on_error_rate_pct=1.0
+    timeout_seconds: 300
+    on_failure: CONTINUE
+
+  - task_key: monitor_churn_model
+    description: "Query and alert on churn model inference table"
+    python_wheel_task:
+      package_name: shopstream_databricks_ai_platform
+      entry_point: ml_platform.monitoring.inference_monitor:main
+      parameters:
+        - model_name=churn_model
+        - alert_on_latency_p95_ms=400
+        - alert_on_error_rate_pct=0.5
+    timeout_seconds: 300
+    on_failure: CONTINUE
+
+  - task_key: drift_detection
+    description: "Check for data distribution drift in feature vectors"
+    depends_on:
+      - task_key: monitor_forecast_model
+      - task_key: monitor_churn_model
+    python_wheel_task:
+      package_name: shopstream_databricks_ai_platform
+      entry_point: ml_platform.monitoring.drift_detector:run_drift_check
+    timeout_seconds: 600
+    on_failure: ALERT
+
+schedule:
+  quartz_cron_expression: "0 2 * * ?" # Daily at 2 AM UTC
+  timezone_id: "UTC"
+
+max_concurrent_runs: 1
+
+tags:
+  environment: "production"
+  component: "ml_platform"
+  owner: "ai_engineering"
