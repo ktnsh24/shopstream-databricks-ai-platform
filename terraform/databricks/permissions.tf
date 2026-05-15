@@ -10,6 +10,14 @@ variable "vaishnavi_email" {
 }
 
 # ------------------------------------------------------------------
+# Workspace entitlements — required to log in and run notebooks/jobs
+# ------------------------------------------------------------------
+resource "databricks_user" "vaishnavi" {
+  user_name    = var.vaishnavi_email
+  entitlements = ["workspace-access", "databricks-sql-access"]
+}
+
+# ------------------------------------------------------------------
 # Secret scope — READ access so pipelines can call dbutils.secrets
 # ------------------------------------------------------------------
 resource "databricks_secret_acl" "vaishnavi_helix_scope" {
