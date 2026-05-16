@@ -1,67 +1,68 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Model Registry — Promote to Production
-# MAGIC Checks the Staging model's AUC against a minimum threshold, archives the
-# MAGIC current Production version, and promotes the Staging version.
+# MAGIC # Model Registry — Promote to Champion (Unity Catalog)
 # MAGIC
-# MAGIC Run manually after reviewing a new training run in the MLflow UI.
-# MAGIC Never run automatically — a human must approve promotion.
+# MAGIC Promotes the latest version of a registered model to the `@champion` alias.
+# MAGIC Unity Catalog uses aliases instead of Staging/Production stages.
 # MAGIC
-# MAGIC Usage:
-# MAGIC   python promote_model.py --model-name helix-churn-prediction --min-auc 0.75
+# MAGIC For regression models (forecasting), pass --min-auc 0.0 to skip the AUC check.
+# MAGIC For classification models (churn), set --min-auc to your quality threshold.
+# MAGIC
+# MAGIC Run manually after reviewing a training run in the MLflow UI.
+# MAGIC
+# MAGIC Usage (in a Databricks notebook cell):
+# MAGIC   promote_to_champion("helix_databricks.default.helix-churn-prediction", min_auc=0.75)
+# MAGIC   promote_to_champion("helix_databricks.default.helix-revenue-forecast", min_auc=0.0)
 
-import argparse
 import mlflow
 from mlflow.tracking import MlflowClient
 
 
-def promote_to_production(model_name: str, min_auc: float = 0.75) -> None:
+def promote_to_champion(model_name: str, min_auc: float = 0.0) -> None:
     """
-    Promote the Staging version of model_name to Production if AUC >= min_auc.
-    Archives the current Production version first.
+    Set the @champion alias on the latest version of model_name in Unity Catalog.
+
+    Args:
+        model_name: 3-level UC name, e.g. helix_databricks.default.helix-churn-prediction
+        min_auc:    Minimum AUC (or R2 for regression) required. Use 0.0 to skip check.
     """
     client = MlflowClient()
 
-    staging_versions = client.get_latest_versions(model_name, stages=["Staging"])
-    if not staging_versions:
-        print(f"No Staging version found for {model_name}. Nothing to promote.")
+    # Get all versions, pick the most recently created one
+    versions = client.search_model_versions(f"name='{model_name}'")
+    if not versions:
+        print(f"No versions found for {model_name}. Train the model first.")
         return
 
-    staging = staging_versions[0]
-    run = client.get_run(staging.run_id)
+    latest = sorted(versions, key=lambda v: int(v.version))[-1]
+    run = client.get_run(latest.run_id)
     metrics = run.data.metrics
 
-    # Find any AUC-related metric key (handles: 'auc', 'test_auc', 'eval_auc')
-    auc_key = next((k for k in metrics if "auc" in k.lower()), None)
-    if auc_key and metrics[auc_key] < min_auc:
-        print(
-            f"{model_name} v{staging.version} AUC={metrics[auc_key]:.4f} "
-            f"is below threshold {min_auc}. Not promoting."
-        )
-        return
+    print(f"Latest version: {latest.version}  metrics: {metrics}")
 
-    # Archive the current Production version so the slot is free
-    current_production = client.get_latest_versions(model_name, stages=["Production"])
-    if current_production:
-        client.transition_model_version_stage(
-            name=model_name,
-            version=current_production[0].version,
-            stage="Archived",
-        )
-        print(f"Archived {model_name} v{current_production[0].version}")
+    # Quality gate — check AUC for classifiers, R2 for regressors, skip if min_auc=0
+    if min_auc > 0:
+        auc_key = next((k for k in metrics if "auc" in k.lower()), None)
+        if auc_key is None:
+            print("No AUC metric found — skipping quality gate.")
+        elif metrics[auc_key] < min_auc:
+            print(
+                f"{model_name} v{latest.version} AUC={metrics[auc_key]:.4f} "
+                f"is below threshold {min_auc}. Not promoting."
+            )
+            return
 
-    client.transition_model_version_stage(
+    # Set @champion alias — replaces any previous @champion automatically
+    client.set_registered_model_alias(
         name=model_name,
-        version=staging.version,
-        stage="Production",
+        alias="champion",
+        version=latest.version,
     )
-    print(f"Promoted {model_name} v{staging.version} to Production")
+    print(f"Set @champion alias → {model_name} v{latest.version}")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Promote MLflow model to Production")
-    parser.add_argument("--model-name", required=True, help="Registered model name")
-    parser.add_argument("--min-auc",    type=float, default=0.75,
-                        help="Minimum AUC required to promote (default: 0.75)")
-    args = parser.parse_args()
-    promote_to_production(args.model_name, args.min_auc)
+# COMMAND ----------
+# Run both promotions directly when executed as a notebook
+
+promote_to_champion("helix_databricks.default.helix-churn-prediction", min_auc=0.75)
+promote_to_champion("helix_databricks.default.helix-revenue-forecast",  min_auc=0.0)
