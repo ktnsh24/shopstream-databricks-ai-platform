@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install mlflow lightgbm scikit-learn --quiet
+
+# COMMAND ----------
+
 import mlflow
 import mlflow.lightgbm
 import lightgbm as lgb
