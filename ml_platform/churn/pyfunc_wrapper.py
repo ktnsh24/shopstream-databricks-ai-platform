@@ -1,7 +1,5 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install "lightgbm==4.3.0" scikit-learn -q
-# COMMAND ----------
 # MAGIC %md
 # MAGIC # Churn Prediction — PyFunc Wrapper
 # MAGIC Wraps the trained LightGBM churn classifier in the MLflow PyFunc interface.

@@ -1,7 +1,5 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install "lightgbm==4.3.0" scikit-learn -q
-# COMMAND ----------
 # Retraining Trigger
 # Runs daily as a Databricks Job. Checks for drift and retrains if needed.
 # Promotion is NOT automated — run promote_model.py after reviewing new runs.

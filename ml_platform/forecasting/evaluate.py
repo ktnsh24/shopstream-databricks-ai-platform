@@ -1,7 +1,5 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install "lightgbm==4.3.0" scikit-learn -q
-# COMMAND ----------
 
 import mlflow
 import pandas as pd

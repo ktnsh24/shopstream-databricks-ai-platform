@@ -1,7 +1,5 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install "lightgbm==4.3.0" scikit-learn -q
-# COMMAND ----------
 # MAGIC %md
 # MAGIC # Churn Prediction — Training
 # MAGIC Trains a LightGBM binary classifier to predict whether a customer will stop
