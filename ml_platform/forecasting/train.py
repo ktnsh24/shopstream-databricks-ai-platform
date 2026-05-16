@@ -1,16 +1,12 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# MAGIC %pip install "mlflow==2.13.2" "lightgbm==4.3.0" scikit-learn pandas "typing_extensions>=4.6.0" -q
 # COMMAND ----------
 # MAGIC %md
 # MAGIC # Revenue Forecasting — Training
 # MAGIC Trains a LightGBM model to predict ShopStream's daily net revenue for the next 7 days.
 # MAGIC Reads from `helix_gold.revenue.fct_revenue_daily`, engineers time-series features,
 # MAGIC trains the model, and registers it in the MLflow Model Registry.
-
-# COMMAND ----------
-
-# MAGIC %pip install lightgbm==3.3.5 --quiet
 
 # COMMAND ----------
 

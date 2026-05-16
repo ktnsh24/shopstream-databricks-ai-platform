@@ -1,6 +1,6 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# MAGIC %pip install "mlflow==2.13.2" "lightgbm==4.3.0" scikit-learn pandas "typing_extensions>=4.6.0" -q
 # COMMAND ----------
 # MAGIC %md
 # MAGIC # Churn Prediction — PyFunc Wrapper

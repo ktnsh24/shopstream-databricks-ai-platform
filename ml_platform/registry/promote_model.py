@@ -1,6 +1,6 @@
 # Databricks notebook source
 # COMMAND ----------
-# MAGIC %pip install mlflow
+# MAGIC %pip install "mlflow==2.13.2" "typing_extensions>=4.6.0" -q
 # COMMAND ----------
 # MAGIC %md
 # MAGIC # Model Registry — Promote to Champion (Unity Catalog)
