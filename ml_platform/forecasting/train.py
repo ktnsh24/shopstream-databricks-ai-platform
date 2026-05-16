@@ -1,4 +1,7 @@
 # Databricks notebook source
+# COMMAND ----------
+# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# COMMAND ----------
 # MAGIC %md
 # MAGIC # Revenue Forecasting — Training
 # MAGIC Trains a LightGBM model to predict ShopStream's daily net revenue for the next 7 days.

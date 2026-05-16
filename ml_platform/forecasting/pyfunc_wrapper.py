@@ -1,5 +1,7 @@
 # Databricks notebook source
 # COMMAND ----------
+# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# COMMAND ----------
 
 import mlflow
 import mlflow.pyfunc

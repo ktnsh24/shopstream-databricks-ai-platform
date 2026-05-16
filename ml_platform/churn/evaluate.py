@@ -1,4 +1,7 @@
 # Databricks notebook source
+# COMMAND ----------
+# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# COMMAND ----------
 # MAGIC %md
 # MAGIC # Churn Prediction — Production Model Evaluation
 # MAGIC Loads the current Production churn model from MLflow and computes AUC

@@ -1,5 +1,7 @@
 # Databricks notebook source
 # COMMAND ----------
+# MAGIC %pip install mlflow lightgbm scikit-learn pandas
+# COMMAND ----------
 # Retraining Trigger
 # Runs daily as a Databricks Job. Checks for drift and retrains if needed.
 # Promotion is NOT automated — run promote_model.py after reviewing new runs.

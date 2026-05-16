@@ -1,4 +1,7 @@
 # Databricks notebook source
+# COMMAND ----------
+# MAGIC %pip install mlflow
+# COMMAND ----------
 # MAGIC %md
 # MAGIC # Model Registry — Promote to Champion (Unity Catalog)
 # MAGIC
