@@ -1,3 +1,4 @@
+# Databricks notebook source
 # COMMAND ----------
 
 import mlflow
@@ -47,6 +48,14 @@ def evaluate_latest_model(spark: SparkSession) -> dict:
 
     mae  = mean_absolute_error(actual, pred_values)
     rmse = np.sqrt(mean_squared_error(actual, pred_values))
+
+    metrics = {"mae": round(mae, 2), "rmse": round(rmse, 2)}
+    print(f"@champion forecast model — last 30 days: MAE={metrics['mae']} RMSE={metrics['rmse']}")
+    return metrics
+
+# COMMAND ----------
+
+spark = SparkSession.builder.getOrCreate()
 
     metrics = {"mae": round(mae, 2), "rmse": round(rmse, 2)}
     print(f"@champion forecast model — last 30 days: MAE={metrics['mae']} RMSE={metrics['rmse']}")
