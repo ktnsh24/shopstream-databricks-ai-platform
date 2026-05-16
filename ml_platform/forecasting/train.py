@@ -7,7 +7,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install lightgbm --quiet
+# MAGIC %pip install lightgbm==3.3.5 --quiet
 
 # COMMAND ----------
 
