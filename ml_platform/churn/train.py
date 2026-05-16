@@ -66,7 +66,8 @@ def train(spark: SparkSession) -> str:
         "verbose":           -1,
     }
 
-    mlflow.set_experiment("helix-churn-prediction")
+    username = spark.sql("SELECT current_user()").collect()[0][0]
+    mlflow.set_experiment(f"/Users/{username}/helix-churn-prediction")
 
     with mlflow.start_run() as run:
         mlflow.log_params(params)
