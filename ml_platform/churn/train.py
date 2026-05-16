@@ -12,6 +12,7 @@
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.models import infer_signature
 import lightgbm as lgb
 import pandas as pd
 import numpy as np
@@ -93,10 +94,13 @@ def train(spark: SparkSession) -> str:
         mlflow.log_metric("precision", round(precision, 4))
         mlflow.log_metric("recall",    round(recall, 4))
 
+        signature = infer_signature(X_train, model.predict(X_train))
         mlflow.lightgbm.log_model(
             model,
             artifact_path="model",
             registered_model_name="helix-churn-prediction",
+            signature=signature,
+            input_example=X_train.iloc[:5],
         )
 
         print(f"AUC={auc:.4f}  precision={precision:.4f}  recall={recall:.4f}")

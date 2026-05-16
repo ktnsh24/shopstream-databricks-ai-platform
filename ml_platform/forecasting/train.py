@@ -13,6 +13,7 @@
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.models import infer_signature
 import lightgbm as lgb
 import pandas as pd
 import numpy as np
@@ -111,10 +112,13 @@ def train(spark: SparkSession) -> str:
         mlflow.log_metric("rmse", round(rmse, 2))
         mlflow.log_metric("r2",   round(r2, 4))
 
+        signature = infer_signature(X_train, model.predict(X_train))
         mlflow.lightgbm.log_model(
             model,
             artifact_path="model",
             registered_model_name="helix-revenue-forecast",
+            signature=signature,
+            input_example=X_train.iloc[:5],
         )
 
         print(f"MAE={mae:.2f}  RMSE={rmse:.2f}  R2={r2:.4f}")
