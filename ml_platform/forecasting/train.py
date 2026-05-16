@@ -53,8 +53,9 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
 # COMMAND ----------
 
-def split_data(df: pd.DataFrame, test_days: int = 30):
-    """Time-based split: last test_days rows are the test set."""
+def split_data(df: pd.DataFrame, test_pct: float = 0.2):
+    """Time-based split: last 20% of rows are the test set."""
+    test_days = max(1, int(len(df) * test_pct))
     train = df.iloc[:-test_days]
     test  = df.iloc[-test_days:]
     return (
@@ -70,6 +71,9 @@ def train(spark: SparkSession) -> str:
     df = df_spark.toPandas()
 
     df_features = engineer_features(df)
+    print(f"Rows after feature engineering: {len(df_features)}")
+    if len(df_features) < 5:
+        raise ValueError(f"Not enough data after feature engineering: {len(df_features)} rows. Need at least 5.")
     X_train, y_train, X_test, y_test = split_data(df_features)
 
     params = {
