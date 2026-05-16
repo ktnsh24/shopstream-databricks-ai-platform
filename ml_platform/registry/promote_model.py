@@ -1,5 +1,8 @@
 # Databricks notebook source
+# MAGIC %pip install "mlflow==2.13.2" "typing_extensions>=4.6.0" -q
+
 # COMMAND ----------
+
 # MAGIC %md
 # MAGIC # Model Registry — Promote to Champion (Unity Catalog)
 # MAGIC
@@ -17,7 +20,8 @@
 
 # COMMAND ----------
 
-import mlflow
+!pip install --upgrade typing_extensions mlflow
+
 from mlflow.tracking import MlflowClient
 
 
@@ -65,7 +69,9 @@ def promote_to_champion(model_name: str, min_auc: float = 0.0) -> None:
 
 
 # COMMAND ----------
+
 # Run both promotions directly when executed as a notebook
 
 promote_to_champion("helix_databricks.default.helix-churn-prediction", min_auc=0.75)
 promote_to_champion("helix_databricks.default.helix-revenue-forecast",  min_auc=0.0)
+
