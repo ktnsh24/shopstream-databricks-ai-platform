@@ -14,6 +14,8 @@
 # MAGIC   promote_to_champion("helix_databricks.default.helix-churn-prediction", min_auc=0.75)
 # MAGIC   promote_to_champion("helix_databricks.default.helix-revenue-forecast", min_auc=0.0)
 
+# COMMAND ----------
+
 import mlflow
 from mlflow.tracking import MlflowClient
 
