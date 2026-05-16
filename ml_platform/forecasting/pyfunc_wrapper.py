@@ -1,17 +1,19 @@
-# Databricks notebook source
-# MAGIC %md
-# MAGIC # Revenue Forecast — PyFunc Wrapper
-# MAGIC Wraps the raw LightGBM booster in the MLflow PyFunc interface so Databricks
-# MAGIC Model Serving can deploy it as a REST endpoint.
-# MAGIC
-# MAGIC Usage:
-# MAGIC   python pyfunc_wrapper.py <run_id>
+# COMMAND ----------
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.models import infer_signature
 import pandas as pd
-from ml_platform.forecasting.train import FEATURE_COLS
 
+FEATURE_COLS = [
+    "day_of_week", "day_of_month", "month", "week_of_year",
+    "lag_1", "lag_2", "lag_3", "lag_7", "lag_14",
+    "rolling_mean_7", "rolling_mean_14", "rolling_mean_30",
+]
+MODEL_UC_NAME = "helix_databricks.default.helix-revenue-forecast"
+PYFUNC_UC_NAME = "helix_databricks.default.helix-revenue-forecast-pyfunc"
+
+# COMMAND ----------
 
 class RevenueForecastModel(mlflow.pyfunc.PythonModel):
     """
@@ -22,7 +24,6 @@ class RevenueForecastModel(mlflow.pyfunc.PythonModel):
     """
 
     def load_context(self, context):
-        # Called once at endpoint startup — loads model into memory
         import lightgbm as lgb
         self.model = lgb.Booster(model_file=context.artifacts["lgbm_model"])
 
@@ -30,21 +31,27 @@ class RevenueForecastModel(mlflow.pyfunc.PythonModel):
         predictions = self.model.predict(model_input[FEATURE_COLS])
         return pd.DataFrame({"predicted_revenue": predictions})
 
+# COMMAND ----------
+# Find the latest forecast training run and wrap it as a PyFunc model
 
-def log_pyfunc_model(run_id: str) -> None:
-    """Re-log the trained LightGBM model as a PyFunc artefact and register it."""
-    with mlflow.start_run(run_id=run_id):
-        mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model",
-            python_model=RevenueForecastModel(),
-            artifacts={"lgbm_model": f"runs:/{run_id}/model/model.lgb"},
-            registered_model_name="helix-revenue-forecast-pyfunc",
-        )
-    print(f"Registered helix-revenue-forecast-pyfunc from run {run_id}")
+client = mlflow.tracking.MlflowClient()
+versions = client.search_model_versions(f"name='{MODEL_UC_NAME}'")
+if not versions:
+    raise RuntimeError(f"No versions found for {MODEL_UC_NAME}. Run train.py first.")
 
+latest = sorted(versions, key=lambda v: int(v.version))[-1]
+run_id = latest.run_id
+print(f"Wrapping {MODEL_UC_NAME} v{latest.version} (run {run_id}) as PyFunc")
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        raise SystemExit("Usage: python pyfunc_wrapper.py <mlflow_run_id>")
-    log_pyfunc_model(sys.argv[1])
+with mlflow.start_run():
+    sample_input = pd.DataFrame([{col: 0.0 for col in FEATURE_COLS}])
+    sample_output = pd.DataFrame({"predicted_revenue": [0.0]})
+    signature = infer_signature(sample_input, sample_output)
+    mlflow.pyfunc.log_model(
+        artifact_path="pyfunc_model",
+        python_model=RevenueForecastModel(),
+        artifacts={"lgbm_model": f"runs:/{run_id}/model/model.lgb"},
+        registered_model_name=PYFUNC_UC_NAME,
+        signature=signature,
+    )
+print(f"Registered {PYFUNC_UC_NAME}")

@@ -4,11 +4,21 @@
 # MAGIC Wraps the trained LightGBM churn classifier in the MLflow PyFunc interface.
 # MAGIC Returns both a probability score and a binary churn label.
 
+# COMMAND ----------
+
 import mlflow
 import mlflow.pyfunc
+from mlflow.models import infer_signature
 import pandas as pd
-from ml_platform.churn.train import FEATURE_COLS
 
+FEATURE_COLS = [
+    "days_since_last_order", "total_orders", "total_spent",
+    "avg_order_value", "return_rate", "days_since_signup",
+]
+MODEL_UC_NAME = "helix_databricks.default.helix-churn-prediction"
+PYFUNC_UC_NAME = "helix_databricks.default.helix-churn-prediction-pyfunc"
+
+# COMMAND ----------
 
 class ChurnPredictionModel(mlflow.pyfunc.PythonModel):
     """
@@ -24,28 +34,33 @@ class ChurnPredictionModel(mlflow.pyfunc.PythonModel):
         self.model = lgb.Booster(model_file=context.artifacts["lgbm_model"])
 
     def predict(self, context, model_input: pd.DataFrame) -> pd.DataFrame:
-        # lgb.Booster.predict returns probabilities directly for binary classifiers
         proba = self.model.predict(model_input[FEATURE_COLS])
         return pd.DataFrame({
             "churn_probability":  proba,
             "is_predicted_churn": (proba > 0.5).astype(int),
         })
 
+# COMMAND ----------
+# Find the latest churn training run and wrap it as a PyFunc model
 
-def log_pyfunc_model(run_id: str) -> None:
-    """Re-log the trained churn model as a PyFunc artefact and register it."""
-    with mlflow.start_run(run_id=run_id):
-        mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model",
-            python_model=ChurnPredictionModel(),
-            artifacts={"lgbm_model": f"runs:/{run_id}/model/model.lgb"},
-            registered_model_name="helix-churn-prediction-pyfunc",
-        )
-    print(f"Registered helix-churn-prediction-pyfunc from run {run_id}")
+client = mlflow.tracking.MlflowClient()
+versions = client.search_model_versions(f"name='{MODEL_UC_NAME}'")
+if not versions:
+    raise RuntimeError(f"No versions found for {MODEL_UC_NAME}. Run train.py first.")
 
+latest = sorted(versions, key=lambda v: int(v.version))[-1]
+run_id = latest.run_id
+print(f"Wrapping {MODEL_UC_NAME} v{latest.version} (run {run_id}) as PyFunc")
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) < 2:
-        raise SystemExit("Usage: python pyfunc_wrapper.py <mlflow_run_id>")
-    log_pyfunc_model(sys.argv[1])
+with mlflow.start_run():
+    sample_input = pd.DataFrame([{col: 0.0 for col in FEATURE_COLS}])
+    sample_output = pd.DataFrame({"churn_probability": [0.0], "is_predicted_churn": [0]})
+    signature = infer_signature(sample_input, sample_output)
+    mlflow.pyfunc.log_model(
+        artifact_path="pyfunc_model",
+        python_model=ChurnPredictionModel(),
+        artifacts={"lgbm_model": f"runs:/{run_id}/model/model.lgb"},
+        registered_model_name=PYFUNC_UC_NAME,
+        signature=signature,
+    )
+print(f"Registered {PYFUNC_UC_NAME}")
