@@ -85,7 +85,7 @@ def train(spark: SparkSession) -> str:
         "verbose":           -1,
     }
 
-    mlflow.set_experiment("/Shared/helix/revenue-forecasting")
+    mlflow.set_experiment("helix-revenue-forecasting")
 
     with mlflow.start_run() as run:
         mlflow.log_params(params)

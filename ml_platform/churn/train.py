@@ -66,7 +66,7 @@ def train(spark: SparkSession) -> str:
         "verbose":           -1,
     }
 
-    mlflow.set_experiment("/Shared/helix/churn-prediction")
+    mlflow.set_experiment("helix-churn-prediction")
 
     with mlflow.start_run() as run:
         mlflow.log_params(params)
