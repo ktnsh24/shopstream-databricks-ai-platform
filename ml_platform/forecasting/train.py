@@ -83,7 +83,7 @@ def train(spark: SparkSession) -> str:
         "learning_rate":     0.05,
         "max_depth":         6,
         "num_leaves":        31,
-        "min_child_samples": 20,
+        "min_child_samples": 5,
         "subsample":         0.8,
         "colsample_bytree":  0.8,
         "verbose":           -1,

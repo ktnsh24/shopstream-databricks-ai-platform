@@ -43,12 +43,14 @@ def train(spark: SparkSession) -> str:
     df = create_churn_labels(df)
 
     df_model = df[FEATURE_COLS + [TARGET_COL]].dropna()
+    print(f"Rows after dropna: {len(df_model)}, churned: {df_model[TARGET_COL].sum()}, not churned: {(df_model[TARGET_COL]==0).sum()}")
     X = df_model[FEATURE_COLS]
     y = df_model[TARGET_COL]
 
-    # stratify=y preserves the churn ratio in both splits
+    # stratify only if both classes exist
+    stratify = y if y.nunique() > 1 else None
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X, y, test_size=0.2, random_state=42, stratify=stratify
     )
 
     # scale_pos_weight corrects for class imbalance (churned = minority class)
@@ -61,7 +63,7 @@ def train(spark: SparkSession) -> str:
         "learning_rate":     0.05,
         "max_depth":         5,
         "num_leaves":        20,
-        "min_child_samples": 10,
+        "min_child_samples": 5,
         "scale_pos_weight":  pos_weight,
         "verbose":           -1,
     }
@@ -82,7 +84,8 @@ def train(spark: SparkSession) -> str:
         preds_proba = model.predict_proba(X_test)[:, 1]
         preds_class = (preds_proba > 0.5).astype(int)
 
-        auc       = roc_auc_score(y_test, preds_proba)
+        # roc_auc_score requires both classes in test set
+        auc = roc_auc_score(y_test, preds_proba) if y_test.nunique() > 1 else 0.0
         precision = precision_score(y_test, preds_class, zero_division=0)
         recall    = recall_score(y_test, preds_class, zero_division=0)
 
