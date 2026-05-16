@@ -91,7 +91,6 @@ def train(spark: SparkSession) -> str:
         return run.info.run_id
 
 
-if __name__ == "__main__":
-    spark = SparkSession.builder.getOrCreate()
-    run_id = train(spark)
-    print(f"MLflow run ID: {run_id}")
+spark = SparkSession.builder.getOrCreate()
+run_id = train(spark)
+print(f"MLflow run ID: {run_id}")
