@@ -4,6 +4,8 @@
 # MAGIC Trains a LightGBM binary classifier to predict whether a customer will stop
 # MAGIC buying in the next 90 days. Reads from `helix_gold.customers.fct_customer_metrics`.
 
+# COMMAND ----------
+
 import mlflow
 import mlflow.lightgbm
 import lightgbm as lgb
@@ -22,6 +24,7 @@ FEATURE_COLS = [
 ]
 TARGET_COL = "is_churned"
 
+# COMMAND ----------
 
 def create_churn_labels(df: pd.DataFrame, churn_days: int = 90) -> pd.DataFrame:
     """Label customers as churned if they have not ordered in churn_days days."""
@@ -29,6 +32,7 @@ def create_churn_labels(df: pd.DataFrame, churn_days: int = 90) -> pd.DataFrame:
     df["is_churned"] = (df["days_since_last_order"] > churn_days).astype(int)
     return df
 
+# COMMAND ----------
 
 def train(spark: SparkSession) -> str:
     df = spark.read.table("helix_gold.customers.fct_customer_metrics").toPandas()
@@ -90,6 +94,7 @@ def train(spark: SparkSession) -> str:
         print(f"AUC={auc:.4f}  precision={precision:.4f}  recall={recall:.4f}")
         return run.info.run_id
 
+# COMMAND ----------
 
 spark = SparkSession.builder.getOrCreate()
 run_id = train(spark)

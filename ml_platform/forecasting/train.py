@@ -5,6 +5,8 @@
 # MAGIC Reads from `helix_gold.revenue.fct_revenue_daily`, engineers time-series features,
 # MAGIC trains the model, and registers it in the MLflow Model Registry.
 
+# COMMAND ----------
+
 import mlflow
 import mlflow.lightgbm
 import lightgbm as lgb
@@ -20,6 +22,7 @@ FEATURE_COLS = [
 ]
 TARGET_COL = "net_revenue"
 
+# COMMAND ----------
 
 def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     """Add calendar and lag features. Drop rows with NaN (first N rows after lagging)."""
@@ -44,6 +47,8 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# COMMAND ----------
+
 def split_data(df: pd.DataFrame, test_days: int = 30):
     """Time-based split: last test_days rows are the test set."""
     train = df.iloc[:-test_days]
@@ -53,6 +58,8 @@ def split_data(df: pd.DataFrame, test_days: int = 30):
         test[FEATURE_COLS],  test[TARGET_COL],
     )
 
+
+# COMMAND ----------
 
 def train(spark: SparkSession) -> str:
     df_spark = spark.read.table("helix_gold.revenue.fct_revenue_daily")
@@ -104,6 +111,8 @@ def train(spark: SparkSession) -> str:
         print(f"MAE={mae:.2f}  RMSE={rmse:.2f}  R2={r2:.4f}")
         return run.info.run_id
 
+
+# COMMAND ----------
 
 spark = SparkSession.builder.getOrCreate()
 run_id = train(spark)
