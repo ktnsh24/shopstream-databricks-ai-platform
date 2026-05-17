@@ -227,30 +227,18 @@ After `agent_pyfunc.py` runs successfully, the model is in Unity Catalog. Now st
 
 **Step 2 — Set environment variables on the endpoint** (critical — without these the agent cannot call the LLM):
 
-```bash
-DATABRICKS_HOST_BARE="<your-workspace>.azuredatabricks.net"   # NO https:// prefix
-DATABRICKS_TOKEN="<your-pat>"
-ENDPOINT_URL="<https://<your-workspace>>.azuredatabricks.net"
+1. Databricks → **Serving** → click `helix-shopstream-agent`
+2. Click **Edit serving endpoint** (pencil icon, top right)
+3. Scroll down to **Environment variables** → click **Add environment variable** for each:
 
-curl -X PUT "$ENDPOINT_URL/api/2.0/serving-endpoints/helix-shopstream-agent/config" \
-  -H "Authorization: Bearer $DATABRICKS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"served_models\": [{
-      \"model_name\": \"helix_databricks.default.helix-shopstream-agent\",
-      \"model_version\": \"1\",
-      \"workload_size\": \"Small\",
-      \"scale_to_zero_enabled\": true,
-      \"environment_vars\": {
-        \"DATABRICKS_TOKEN\": \"$DATABRICKS_TOKEN\",
-        \"DATABRICKS_HOST\": \"$DATABRICKS_HOST_BARE\"
-      }
-    }]
-  }"
+| Key | Value | Note |
+|---|---|---|
+| `DATABRICKS_HOST` | `<your-workspace>.azuredatabricks.net` | **No `https://` prefix** — see note below |
+| `DATABRICKS_TOKEN` | `<your-pat>` | The PAT from Step 5 |
 
-```
+4. Click **Update serving endpoint** → wait for status `READY` (5–10 minutes)
 
-> **Why the bare hostname (no `https://`):** The agent code calls `f"<https://{host}/serving-endpoints">`. If `host` already contains `https://`, the URL becomes `https://<https://...>` and every LLM call returns a connection error.
+> **Why the bare hostname (no `https://`):** The agent code builds the URL as `f"https://{host}/serving-endpoints/..."`. If `DATABRICKS_HOST` already contains `https://`, the final URL becomes `https://https://...` and every LLM call fails with a connection error.
 
 Wait for status `READY` (5–10 minutes) before proceeding.
 
@@ -323,7 +311,11 @@ az containerapp show \
 
 ## 9. Phase 05 — Set env vars on serving endpoint
 
-This was already covered in step 7. If you need to update the token (e.g. after rotation), re-run the `curl -X PUT` command with the new token and wait for the endpoint to cycle back to `READY`.
+This was already covered in step 7. If you need to update the token after rotation:
+
+1. Databricks → **Serving** → `helix-shopstream-agent` → **Edit serving endpoint**
+2. Under **Environment variables**, update the value of `DATABRICKS_TOKEN`
+3. Click **Update serving endpoint** → wait for `READY`
 
 ---
 
@@ -376,23 +368,44 @@ Then re-run the seed script.
 
 ## 11. Verify end-to-end
 
-Replace `<your-app-url>` with the URL from step 8.
-
-```bash
-# Health check
-curl -s "<https://<your-app-url>>/health"
-# Expected: {"status": "ok", ...}
-
-# Ask the agent a revenue question
-curl -s -X POST "<https://<your-app-url>>/ask" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What was total revenue last 7 days?"}' | python3 -c "
-import sys, json
-print(json.loads(sys.stdin.read()).get('answer', ''))
-"
-# Expected: a sentence with actual euro amounts from the seeded data
+The API Gateway ships with Swagger UI. Open it in your browser:
 
 ```
+https://<your-app-url>/docs
+```
+
+**Step 1 — Health check:**
+
+1. Find **GET /health** → click **Try it out** → click **Execute**
+2. Expected response body:
+
+```json
+{"status": "ok"}
+```
+
+**Step 2 — Ask a revenue question:**
+
+1. Find **POST /ask** → click **Try it out**
+2. Replace the request body with:
+
+```json
+{"question": "What was total revenue last 7 days?"}
+```
+
+3. Click **Execute**
+4. Expected: a `200` response with an `answer` field containing euro amounts from the seeded data and `agent: "pricing"`
+
+**Step 3 — Verify the gatekeeper blocks off-topic questions:**
+
+1. Still on **POST /ask** → **Try it out**
+2. Request body:
+
+```json
+{"question": "Write me a poem about shipping"}
+```
+
+3. Click **Execute**
+4. Expected: `blocked: true` in the response — no LLM token was spent on this question
 
 ---
 

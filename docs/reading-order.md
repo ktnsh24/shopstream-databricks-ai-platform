@@ -119,7 +119,7 @@ After reading the brand-new section above, continue with:
 | [mlflow-tracking.md](ai-engineering/mlflow-tracking.md) | Experiments, model registry, PyFunc, Model Serving | AI/ML Engineers |
 | [evaluation.md](ai-engineering/evaluation.md) | Rule-based eval, LLM-as-judge, MLflow Evaluate | AI/ML Engineers |
 | [observability.md](ai-engineering/observability.md) | Inference Tables, Lakehouse Monitoring, Llama Guard, drift detection | AI/ML Engineers |
-| [production-patterns.md](ai-engineering/production-patterns.md) | Gatekeeper, retry with backoff, structured output — patterns from Odido production | AI/ML Engineers |
+| [production-patterns.md](ai-engineering/production-patterns.md) | Gatekeeper, retry with backoff, structured output — production-hardened patterns | AI/ML Engineers |
 | [mcp-server.md](ai-engineering/mcp-server.md) | MCP protocol, tool registration, Claude Desktop integration | AI/ML Engineers |
 
 ### Hands-on Labs
