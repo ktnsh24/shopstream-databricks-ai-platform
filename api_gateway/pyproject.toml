@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "shopstream-api-gateway"
+version = "1.0.0"
+description = "AI-powered API gateway for ShopStream business intelligence queries"
+authors = ["ShopStream Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.111.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+httpx = "^0.27.0"
+pydantic = "^2.7.0"
+pydantic-settings = "^2.3.0"
+loguru = "^0.7.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.7"
+respx = "^0.21.1"
+ruff = "^0.4.4"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
