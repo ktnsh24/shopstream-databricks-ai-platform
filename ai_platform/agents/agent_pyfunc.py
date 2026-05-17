@@ -667,8 +667,11 @@ class _ForecastTool:
         df["predicted_revenue_eur"] = preds.round(2)
         lines = [f"Revenue forecast — next {horizon_days} days", "-" * 40]
         for _, row in df.iterrows():
-            lines.append(f"{row[\\'forecast_date\\']}  EUR {row[\\'predicted_revenue_eur\\']:>10,.2f}")
-        lines.append(f"\\nTotal: EUR {df[\\'predicted_revenue_eur\\'].sum():,.2f}")
+            d = str(row["forecast_date"])
+            r = float(row["predicted_revenue_eur"])
+            lines.append(f"{d}  EUR {r:>10,.2f}")
+        total_rev = float(df["predicted_revenue_eur"].sum())
+        lines.append(f"\\nTotal: EUR {total_rev:,.2f}")
         return "\\n".join(lines)
 
 
