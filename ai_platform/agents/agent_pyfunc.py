@@ -484,22 +484,41 @@ mlflow.set_registry_uri("databricks-uc")
 import importlib.util as _ilu
 import pathlib as _pathlib
 
-# Resolve the committed model file next to this notebook
-_MODEL_FILE = str(
-    _pathlib.Path(__file__).parent / "shopstream_agent_model.py"
-    if "__file__" in dir()
-    else _pathlib.Path("/Workspace/Repos") / "shopstream-databricks-ai-platform/ai_platform/agents/shopstream_agent_model.py"
-)
+# --- Locate shopstream_agent_model.py ---
+# In a Databricks notebook there is no __file__. We derive the path from
+# the notebook's own workspace path, which always works regardless of username.
+def _find_model_file() -> str:
+    # Strategy 1: derive from the running notebook's workspace path
+    try:
+        _nb_path = (
+            dbutils.notebook.entry_point  # noqa: F821  # Databricks global
+            .getDbutils().notebook().getContext().notebookPath().get()
+        )
+        # nb_path looks like /Workspace/Repos/<user>/shopstream-databricks-ai-platform/ai_platform/agents/agent_pyfunc
+        _candidate = _pathlib.Path("/Workspace") / _pathlib.Path(_nb_path).relative_to("/Workspace").parent / "shopstream_agent_model.py"
+        if _candidate.exists():
+            return str(_candidate)
+    except Exception:
+        pass
 
-# Fallback: walk common Databricks Repos mount points
-if not _pathlib.Path(_MODEL_FILE).exists():
+    # Strategy 2: glob the entire Repos tree (catches any username)
     import glob as _glob
-    _candidates = _glob.glob(
-        "/Workspace/Repos/**/shopstream_agent_model.py", recursive=True
-    )
-    if _candidates:
-        _MODEL_FILE = _candidates[0]
+    _hits = _glob.glob("/Workspace/Repos/**/shopstream_agent_model.py", recursive=True)
+    if _hits:
+        return _hits[0]
 
+    # Strategy 3: __file__ (works when run as a plain Python script locally)
+    if "__file__" in dir():
+        _local = _pathlib.Path(__file__).parent / "shopstream_agent_model.py"
+        if _local.exists():
+            return str(_local)
+
+    raise FileNotFoundError(
+        "shopstream_agent_model.py not found. "
+        "Make sure the file is committed and the repo is synced in Databricks Repos."
+    )
+
+_MODEL_FILE = _find_model_file()
 _spec = _ilu.spec_from_file_location("shopstream_agent_model", _MODEL_FILE)
 _agent_module = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_agent_module)
