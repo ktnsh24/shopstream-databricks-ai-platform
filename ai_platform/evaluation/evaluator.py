@@ -58,10 +58,13 @@ print(golden_df[["question_id", "category", "question"]].to_string(index=False))
 # COMMAND ----------
 
 mlflow.set_registry_uri("databricks-uc")
-agent = mlflow.pyfunc.load_model(f"models:/{AGENT_MODEL_NAME}@champion")
+# unwrap_python_model() bypasses MLflow input schema enforcement —
+# we control both ends here so enforcement adds no value and breaks on dtype mismatches.
+_pyfunc_model = mlflow.pyfunc.load_model(f"models:/{AGENT_MODEL_NAME}@champion")
+agent = _pyfunc_model.unwrap_python_model()
 
-input_df = pd.DataFrame({"question": golden_df["question"].tolist()})
-predictions = agent.predict(input_df)
+input_df = pd.DataFrame({"question": golden_df["question"].astype(str).tolist()})
+predictions = agent.predict(None, input_df)
 golden_df["agent_answer"] = predictions["answer"].tolist()
 
 print("Agent responses collected.")
