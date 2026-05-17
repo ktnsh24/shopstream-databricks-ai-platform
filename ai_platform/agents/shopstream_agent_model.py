@@ -82,8 +82,11 @@ def _run_sql(sql: str) -> str:
         statement=sql,
         wait_timeout="30s",
     )
-    if response.status.state != StatementState.SUCCEEDED:
-        return f"Query failed: {response.status.error}"
+    if not response.status or response.status.state != StatementState.SUCCEEDED:
+        err = (response.status.error if response.status else "unknown error")
+        return f"Query failed: {err}"
+    if not response.manifest or not response.result:
+        return "Query returned no rows."
     cols = [c.name for c in response.manifest.schema.columns]
     rows = response.result.data_array or []
     if not rows:
@@ -149,9 +152,9 @@ class _QueryMetricsTool:
     }
 
     def run(self, args: dict) -> str:
-        metric = args.get("metric", "revenue")
-        period = args.get("period", "last 7 days").lower().strip()
-        limit = int(args.get("limit", 10))
+        metric = args.get("metric") or "revenue"
+        period = (args.get("period") or "last 7 days").lower().strip()
+        limit = int(args.get("limit") or 10)
         start = self._PERIOD_MAP.get(period, "CURRENT_DATE - INTERVAL 7 DAYS")
         sql = self._SQL.get(metric, self._SQL["revenue"]).format(start=start, limit=limit)
         return _run_sql(sql)
@@ -173,7 +176,7 @@ class _SearchDocumentsTool:
     }
 
     def run(self, args: dict) -> str:
-        query = args.get("query", "").strip()
+        query = (args.get("query") or "").strip()
         if not query:
             return "Error: query is required."
         w = WorkspaceClient()
@@ -181,7 +184,7 @@ class _SearchDocumentsTool:
             index_name=VS_INDEX,
             columns=["chunk_id", "source_file", "section", "chunk_text"],
             query_text=query,
-            num_results=int(args.get("num_results", 4)),
+            num_results=int(args.get("num_results") or 4),
         )
         rows = results.result.data_array if results.result else []
         if not rows:
@@ -224,7 +227,7 @@ class _ForecastTool:
             "ORDER BY order_date DESC LIMIT 30"
         )
         result = _run_sql(sql)
-        if result.startswith("Error") or result == "Query returned no rows.":
+        if result.startswith(("Error", "Query failed:")) or result == "Query returned no rows.":
             return pd.DataFrame()
         lines = result.strip().splitlines()
         rows = []
@@ -239,7 +242,7 @@ class _ForecastTool:
 
     def run(self, args: dict) -> str:
         from datetime import date, timedelta
-        horizon_days = min(int(args.get("horizon_days", 7)), 90)
+        horizon_days = min(int(args.get("horizon_days") or 7), 90)
         today = date.today()
 
         history = self._fetch_history()
@@ -378,10 +381,13 @@ def _run_agent(question: str, client: OpenAI) -> str:
         for tc in msg.tool_calls:
             tool = _TOOLS_REGISTRY.get(tc.function.name)
             try:
-                tool_args = json.loads(tc.function.arguments)
-            except json.JSONDecodeError:
+                tool_args = json.loads(tc.function.arguments or "{}")
+            except (json.JSONDecodeError, TypeError):
                 tool_args = {}
-            result = tool.run(tool_args) if tool else f"Tool '{tc.function.name}' not found."
+            try:
+                result = tool.run(tool_args) if tool else f"Tool '{tc.function.name}' not found."
+            except Exception as exc:
+                result = f"Tool '{tc.function.name}' raised an error: {exc}"
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
     return "Reached maximum tool rounds without a final answer."
 
