@@ -56,9 +56,12 @@ def _get_databricks_host() -> str:
 
 
 def _make_client() -> OpenAI:
+    host = _get_databricks_host()
+    # host may or may not include scheme — normalise to bare hostname for base_url
+    host = host.removeprefix("https://").removeprefix("http://").rstrip("/")
     return OpenAI(
         api_key=_get_databricks_token(),
-        base_url=f"https://{_get_databricks_host()}/serving-endpoints",
+        base_url=f"https://{host}/serving-endpoints",
     )
 
 
