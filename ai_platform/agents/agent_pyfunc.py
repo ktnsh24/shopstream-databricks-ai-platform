@@ -5,6 +5,10 @@
 %pip install --quiet mlflow openai
 
 # COMMAND ----------
+
+dbutils.library.restartPython()
+
+# COMMAND ----------
 # MAGIC %md
 # MAGIC # ShopStream AI Agent — MLflow PyFunc Registration
 # MAGIC
@@ -296,10 +300,29 @@ Think step by step. Call tools one at a time. Give a clear final answer.
 """
 
 
+def _get_databricks_token() -> str:
+    """Get Databricks token: dbutils (notebooks) first, then env var."""
+    try:
+        return dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()  # noqa: F821
+    except Exception:
+        token = os.environ.get("DATABRICKS_TOKEN", "")
+        if not token:
+            raise RuntimeError("No Databricks token found. Set DATABRICKS_TOKEN env var.")
+        return token
+
+
+def _get_databricks_host() -> str:
+    """Get Databricks workspace URL: dbutils first, then env var."""
+    try:
+        return dbutils.notebook.entry_point.getDbutils().notebook().getContext().browserHostName().get()  # noqa: F821
+    except Exception:
+        return os.environ.get("DATABRICKS_HOST", "").rstrip("/")
+
+
 def _make_client() -> OpenAI:
     return OpenAI(
-        api_key=os.environ.get("DATABRICKS_TOKEN", ""),
-        base_url=f"{os.environ.get('DATABRICKS_HOST', '').rstrip('/')}/serving-endpoints",
+        api_key=_get_databricks_token(),
+        base_url=f"https://{_get_databricks_host()}/serving-endpoints",
     )
 
 

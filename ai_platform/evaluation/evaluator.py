@@ -23,6 +23,10 @@
 
 # COMMAND ----------
 
+dbutils.library.restartPython()
+
+# COMMAND ----------
+
 import mlflow
 import pandas as pd
 from openai import OpenAI
@@ -133,9 +137,26 @@ REASON: <one sentence>"""
         return 0.0, f"Judge error: {exc}"
 
 
+def _get_databricks_token() -> str:
+    try:
+        return dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()  # noqa: F821
+    except Exception:
+        token = os.environ.get("DATABRICKS_TOKEN", "")
+        if not token:
+            raise RuntimeError("No Databricks token found. Set DATABRICKS_TOKEN env var.")
+        return token
+
+
+def _get_databricks_host() -> str:
+    try:
+        return dbutils.notebook.entry_point.getDbutils().notebook().getContext().browserHostName().get()  # noqa: F821
+    except Exception:
+        return os.environ.get("DATABRICKS_HOST", "").rstrip("/")
+
+
 judge_client = OpenAI(
-    api_key=os.environ.get("DATABRICKS_TOKEN", ""),
-    base_url=f"{os.environ.get('DATABRICKS_HOST', '').rstrip('/')}/serving-endpoints",
+    api_key=_get_databricks_token(),
+    base_url=f"https://{_get_databricks_host()}/serving-endpoints",
 )
 
 judge_scores = []
