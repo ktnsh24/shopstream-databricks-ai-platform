@@ -45,6 +45,14 @@ AGENT_MODEL_NAME = f"{CATALOG}.{DATABASE}.helix-shopstream-agent"
 JUDGE_MODEL = "databricks-meta-llama-3-3-70b-instruct"
 EXPERIMENT_NAME = "/helix/agent-evaluation"
 
+# Databricks requires experiment paths to be under /Users/{username}/ unless the
+# parent folder already exists. Derive the username at runtime and use that as prefix.
+try:
+    _username = spark.sql("SELECT current_user()").collect()[0][0]  # noqa: F821
+    EXPERIMENT_NAME = f"/Users/{_username}/helix/agent-evaluation"
+except Exception:
+    pass  # fallback to /helix/agent-evaluation if spark not available
+
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## Step 1: Load golden dataset
