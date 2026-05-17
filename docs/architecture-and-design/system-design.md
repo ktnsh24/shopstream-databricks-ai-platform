@@ -145,54 +145,6 @@ graph TB
     class Dashboard,APIClient,Agent_UI consumer
     class UC uc
 ```
-│  │  Column masking on PII • Row filters per team • Data lineage     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  LAKEFLOW JOBS (Databricks Asset Bundles)                        │   │
-│  │  streaming_pipeline.yml  — always-on, restarts on failure        │   │
-│  │  nightly_batch.yml       — scheduled 01:00 UTC                   │   │
-│  │  delta_maintenance.yml   — weekly OPTIMIZE + VACUUM              │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                           │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  MOSAIC AI — ML + AI layer                                       │   │
-│  │  ├── MLflow: experiment tracking + model registry                │   │
-│  │  ├── Feature Store: customer + product features                  │   │
-│  │  ├── Model Serving: forecasting endpoint + churn endpoint        │   │
-│  │  ├── Vector Search: Gold tables + business docs indexed          │   │
-│  │  ├── Foundation Model APIs: Llama 3.3 70B (pay-per-token)        │   │
-│  │  ├── Agent Framework: multi-tool orchestrator                    │   │
-│  │  ├── Unity AI Gateway: rate limits + audit + routing             │   │
-│  │  ├── AI/BI Genie: native NL-to-SQL in workspace                  │   │
-│  │  └── Lakehouse Monitoring: Gold table data quality drift         │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                           │
-│  Databricks Asset Bundles (DAB): all resources as versioned IaC          │
-└──────────────────────────────┬───────────────────────────────────────────┘
-                               │ async REST (httpx)
-                               ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│               API GATEWAY (FastAPI on Azure Container Apps)               │
-│          Pydantic v2 · async Python · Azure Managed Identity auth         │
-│                                                                           │
-│  POST /v1/ask        NL question → AI agent answer (streaming)            │
-│  GET  /v1/metrics    Live business metrics from Gold tables                │
-│  POST /v1/forecast   Revenue + churn forecast (Model Serving)             │
-│  POST /v1/visualize  NL → chart spec + data (Vega-Lite JSON)              │
-│  POST /v1/report     Generate structured business report via LLM          │
-│  GET  /v1/alerts     Data quality + SLA alerts from Lakehouse Monitoring  │
-│  GET  /health        Liveness + Databricks connectivity check             │
-└──────────────────────────────┬───────────────────────────────────────────┘
-                               │
-          ┌────────────────────┼────────────────────┐
-          ▼                    ▼                     ▼
-   ┌─────────────┐    ┌──────────────┐    ┌──────────────────┐
-   │  Revenue    │    │  Customer    │    │  Product         │
-   │  Team       │    │  Team        │    │  Team            │
-   │  (REST API) │    │  (Power BI)  │    │  (Databricks App)│
-   └─────────────┘    └──────────────┘    └──────────────────┘
-```
 
 ---
 
