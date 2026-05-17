@@ -1,6 +1,10 @@
 # Databricks notebook source
 
 # COMMAND ----------
+
+%pip install --quiet mlflow openai
+
+# COMMAND ----------
 # MAGIC %md
 # MAGIC # ShopStream AI Agent — MLflow PyFunc Registration
 # MAGIC
