@@ -203,44 +203,90 @@ class _ForecastTool:
         "required": [],
     }
     _model = None
-    _FEATURE_COLS = ["day_of_week", "month", "day_of_month", "is_weekend"]
+    # Must match FEATURE_COLS in ml_platform/forecasting/train.py exactly
+    _FEATURE_COLS = [
+        "day_of_week", "day_of_month", "month", "week_of_year",
+        "lag_1", "lag_2", "lag_3", "lag_7", "lag_14",
+        "rolling_mean_7", "rolling_mean_14", "rolling_mean_30",
+    ]
 
     def _get_model(self):
         if self.__class__._model is None:
-            # Use mlflow.lightgbm.load_model — returns the raw LightGBM Booster,
-            # no PyFunc wrapper, no schema enforcement. mlflow.pyfunc.load_model
-            # always validates dtypes and throws MlflowException on int64 vs float64.
             import mlflow.lightgbm as _mlflow_lgb
             self.__class__._model = _mlflow_lgb.load_model(f"models:/{FORECAST_MODEL_UC}@champion")
         return self.__class__._model
 
+    def _fetch_history(self) -> pd.DataFrame:
+        """Fetch last 30 days of net_revenue from the Gold table for lag/rolling features."""
+        sql = (
+            "SELECT CAST(order_date AS STRING) AS order_date, net_revenue "
+            "FROM helix_gold.revenue.fct_revenue_daily "
+            "ORDER BY order_date DESC LIMIT 30"
+        )
+        result = _run_sql(sql)
+        if result.startswith("Error") or result == "Query returned no rows.":
+            return pd.DataFrame()
+        lines = result.strip().splitlines()
+        rows = []
+        for line in lines[1:]:  # skip header
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    rows.append({"order_date": parts[0], "net_revenue": float(parts[1])})
+                except ValueError:
+                    pass
+        return pd.DataFrame(rows).sort_values("order_date").reset_index(drop=True)
+
     def run(self, args: dict) -> str:
         from datetime import date, timedelta
-        import lightgbm as lgb
         horizon_days = min(int(args.get("horizon_days", 7)), 90)
         today = date.today()
-        records = [
-            {
-                "day_of_week": (today + timedelta(days=i)).weekday(),
-                "month": (today + timedelta(days=i)).month,
-                "day_of_month": (today + timedelta(days=i)).day,
-                "is_weekend": int((today + timedelta(days=i)).weekday() >= 5),
-                "forecast_date": (today + timedelta(days=i)).isoformat(),
-            }
-            for i in range(1, horizon_days + 1)
-        ]
-        df = pd.DataFrame(records)
-        features = df[self._FEATURE_COLS].astype("float64")
+
+        history = self._fetch_history()
+        if history.empty:
+            return "Cannot generate forecast: no historical revenue data found in helix_gold.revenue.fct_revenue_daily."
+
+        history["net_revenue"] = history["net_revenue"].astype(float)
+        revenue_series = history["net_revenue"].tolist()
+
+        records = []
+        for i in range(1, horizon_days + 1):
+            forecast_date = today + timedelta(days=i)
+            all_rev = revenue_series  # actuals; predicted values aren't appended (inference only)
+            n = len(all_rev)
+
+            def _lag(k):
+                return float(all_rev[n - k]) if n >= k else float(all_rev[0])
+
+            def _rolling(w):
+                window = all_rev[max(0, n - w):]
+                return float(sum(window) / len(window)) if window else 0.0
+
+            records.append({
+                "day_of_week":     float(forecast_date.weekday()),
+                "day_of_month":    float(forecast_date.day),
+                "month":           float(forecast_date.month),
+                "week_of_year":    float(forecast_date.isocalendar()[1]),
+                "lag_1":           _lag(1),
+                "lag_2":           _lag(2),
+                "lag_3":           _lag(3),
+                "lag_7":           _lag(7),
+                "lag_14":          _lag(14),
+                "rolling_mean_7":  _rolling(7),
+                "rolling_mean_14": _rolling(14),
+                "rolling_mean_30": _rolling(30),
+            })
+
+        features = pd.DataFrame(records, columns=self._FEATURE_COLS)
         booster = self._get_model()
-        # Raw LightGBM booster takes a Dataset or numpy array — use predict directly
-        preds = booster.predict(features.values) if hasattr(booster, "predict") else booster.predict(lgb.Dataset(features))
-        df["predicted_revenue_eur"] = preds.round(2)
+        preds = booster.predict(features.values)
         lines = [f"Revenue forecast — next {horizon_days} days", "-" * 40]
-        for _, row in df.iterrows():
-            d = str(row["forecast_date"])
-            r = float(row["predicted_revenue_eur"])
+        total_rev = 0.0
+        for i, pred in enumerate(preds):
+            d = (today + timedelta(days=i + 1)).isoformat()
+            r = round(float(pred), 2)
+            total_rev += r
             lines.append(f"{d}  EUR {r:>10,.2f}")
-        total_rev = float(df["predicted_revenue_eur"].sum())
         lines.append(f"\nTotal: EUR {total_rev:,.2f}")
         return "\n".join(lines)
 
