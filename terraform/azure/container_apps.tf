@@ -1,6 +1,6 @@
 resource "azurerm_container_app_environment" "main" {
   name                = "${var.project}-cae-${local.suffix}"
-  location            = data.azurerm_resource_group.main.location
+  location            = "northeurope"  # westeurope at capacity for Container Apps
   resource_group_name = data.azurerm_resource_group.main.name
   # log_analytics_workspace_id omitted — workspace destroyed to save cost
 
