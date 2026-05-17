@@ -34,14 +34,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _get_databricks_token() -> str:
+    # Strategy 1: notebook/job runtime context (works in notebooks and jobs)
     try:
         from dbruntime.databricks_repl_context import get_context  # type: ignore
         return get_context().apiToken
     except Exception:
-        token = os.environ.get("DATABRICKS_TOKEN", "")
-        if not token:
-            raise RuntimeError("No Databricks token found. Set DATABRICKS_TOKEN env var.")
+        pass
+    # Strategy 2: environment variable (works in local dev, Container App, and Model Serving)
+    token = os.environ.get("DATABRICKS_TOKEN", "")
+    if token:
         return token
+    raise RuntimeError("No Databricks token found. Set DATABRICKS_TOKEN env var.")
 
 
 def _get_databricks_host() -> str:
