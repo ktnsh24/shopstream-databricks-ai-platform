@@ -207,18 +207,16 @@ class _ForecastTool:
 
     def _get_model(self):
         if self.__class__._model is None:
-            # Load the underlying LightGBM booster directly to bypass MLflow schema
-            # enforcement — schema validation on input dtypes causes MlflowException
-            # when int64 columns don't exactly match the registered schema.
-            pyfunc = mlflow.pyfunc.load_model(f"models:/{FORECAST_MODEL_UC}@champion")
-            try:
-                self.__class__._model = pyfunc.unwrap_python_model()
-            except Exception:
-                self.__class__._model = pyfunc
+            # Use mlflow.lightgbm.load_model — returns the raw LightGBM Booster,
+            # no PyFunc wrapper, no schema enforcement. mlflow.pyfunc.load_model
+            # always validates dtypes and throws MlflowException on int64 vs float64.
+            import mlflow.lightgbm as _mlflow_lgb
+            self.__class__._model = _mlflow_lgb.load_model(f"models:/{FORECAST_MODEL_UC}@champion")
         return self.__class__._model
 
     def run(self, args: dict) -> str:
         from datetime import date, timedelta
+        import lightgbm as lgb
         horizon_days = min(int(args.get("horizon_days", 7)), 90)
         today = date.today()
         records = [
@@ -232,11 +230,10 @@ class _ForecastTool:
             for i in range(1, horizon_days + 1)
         ]
         df = pd.DataFrame(records)
-        # Cast all feature columns to float64 — LightGBM and MLflow schema both
-        # expect float64; Python int literals produce int64 which triggers schema error.
         features = df[self._FEATURE_COLS].astype("float64")
-        model = self._get_model()
-        preds = model.predict(features) if hasattr(model, "predict") else model.predict(None, features)
+        booster = self._get_model()
+        # Raw LightGBM booster takes a Dataset or numpy array — use predict directly
+        preds = booster.predict(features.values) if hasattr(booster, "predict") else booster.predict(lgb.Dataset(features))
         df["predicted_revenue_eur"] = preds.round(2)
         lines = [f"Revenue forecast — next {horizon_days} days", "-" * 40]
         for _, row in df.iterrows():
