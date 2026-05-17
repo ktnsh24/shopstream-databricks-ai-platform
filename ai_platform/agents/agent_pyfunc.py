@@ -144,6 +144,15 @@ def _find_model_file() -> str:
     )
 
 _MODEL_FILE = _find_model_file()
+
+# Derive sibling agent file paths from the same directory.
+# All 4 files must be in the same folder as shopstream_agent_model.py.
+_AGENTS_DIR = _pathlib.Path(_MODEL_FILE).parent
+_SUPERVISOR_FILE    = str(_AGENTS_DIR / "supervisor.py")
+_FRAUD_AGENT_FILE   = str(_AGENTS_DIR / "fraud_agent.py")
+_PRICING_AGENT_FILE = str(_AGENTS_DIR / "pricing_agent.py")
+_CUSTOMER_AGENT_FILE = str(_AGENTS_DIR / "customer_agent.py")
+
 _spec = _ilu.spec_from_file_location("shopstream_agent_model", _MODEL_FILE)
 _agent_module = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_agent_module)
@@ -190,7 +199,13 @@ with mlflow.start_run(run_name="shopstream-agent-registration"):
     model_info = mlflow.pyfunc.log_model(
         artifact_path="agent",
         python_model=ShopStreamAgentClass(),
-        code_paths=[_MODEL_FILE],
+        code_paths=[
+            _MODEL_FILE,
+            _SUPERVISOR_FILE,
+            _FRAUD_AGENT_FILE,
+            _PRICING_AGENT_FILE,
+            _CUSTOMER_AGENT_FILE,
+        ],
         registered_model_name=AGENT_MODEL_NAME,
         input_example=pd.DataFrame({"question": ["What was total revenue last 7 days?"]}),
     )

@@ -417,10 +417,27 @@ class ShopStreamAgent(mlflow.pyfunc.PythonModel):
         else:
             return pd.DataFrame({"answer": ["Error: input must have 'question' or 'messages' column."]})
         answers = []
+        agents_used = []
         for q in questions:
             allowed, reason = _run_gatekeeper(q, client)
             if not allowed:
                 answers.append(f"I can only answer ShopStream data questions. ({reason})")
-            else:
+                agents_used.append("blocked")
+                continue
+
+            # Try multi-agent routing first; fall back to the single general agent
+            # if the supervisor files are not bundled (e.g. during local testing).
+            try:
+                try:
+                    from ai_platform.agents.supervisor import run as _supervisor_run
+                except ImportError:
+                    from supervisor import run as _supervisor_run  # type: ignore[no-redef]
+
+                result = _supervisor_run(q, client)
+                answers.append(result["answer"])
+                agents_used.append(result["agent"])
+            except Exception:
                 answers.append(_run_agent(q, client))
-        return pd.DataFrame({"answer": answers})
+                agents_used.append("general")
+
+        return pd.DataFrame({"answer": answers, "agent": agents_used})
