@@ -101,7 +101,7 @@ else:
             embedding_source_columns=[
                 EmbeddingSourceColumn(
                     name=EMBEDDING_SOURCE_COLUMN,
-                    embedding_model_endpoint_name=EMBEDDING_MODEL,
+                    model_endpoint_name=EMBEDDING_MODEL,
                 )
             ],
         ),
