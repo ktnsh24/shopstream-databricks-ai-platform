@@ -203,10 +203,18 @@ class _ForecastTool:
         "required": [],
     }
     _model = None
+    _FEATURE_COLS = ["day_of_week", "month", "day_of_month", "is_weekend"]
 
     def _get_model(self):
         if self.__class__._model is None:
-            self.__class__._model = mlflow.pyfunc.load_model(f"models:/{FORECAST_MODEL_UC}@champion")
+            # Load the underlying LightGBM booster directly to bypass MLflow schema
+            # enforcement — schema validation on input dtypes causes MlflowException
+            # when int64 columns don't exactly match the registered schema.
+            pyfunc = mlflow.pyfunc.load_model(f"models:/{FORECAST_MODEL_UC}@champion")
+            try:
+                self.__class__._model = pyfunc.unwrap_python_model()
+            except Exception:
+                self.__class__._model = pyfunc
         return self.__class__._model
 
     def run(self, args: dict) -> str:
@@ -224,7 +232,11 @@ class _ForecastTool:
             for i in range(1, horizon_days + 1)
         ]
         df = pd.DataFrame(records)
-        preds = self._get_model().predict(df[["day_of_week", "month", "day_of_month", "is_weekend"]])
+        # Cast all feature columns to float64 — LightGBM and MLflow schema both
+        # expect float64; Python int literals produce int64 which triggers schema error.
+        features = df[self._FEATURE_COLS].astype("float64")
+        model = self._get_model()
+        preds = model.predict(features) if hasattr(model, "predict") else model.predict(None, features)
         df["predicted_revenue_eur"] = preds.round(2)
         lines = [f"Revenue forecast — next {horizon_days} days", "-" * 40]
         for _, row in df.iterrows():
