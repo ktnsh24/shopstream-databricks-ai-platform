@@ -128,10 +128,9 @@ elapsed = 0
 
 while elapsed < max_wait_seconds:
     idx = w.vector_search_indexes.get_index(index_name=VS_INDEX)
-    status = idx.status.ready_for_query if idx.status else False
-    state = idx.status.index_url if idx.status else "unknown"
-    print(f"[{elapsed}s] Index status — ready_for_query: {status}")
-    if status:
+    ready = idx.status.ready if idx.status else False
+    print(f"[{elapsed}s] Index status — ready: {ready}")
+    if ready:
         print(f"\nIndex '{VS_INDEX}' is ONLINE and ready to query.")
         break
     time.sleep(poll_interval)
