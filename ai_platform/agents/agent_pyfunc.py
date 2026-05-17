@@ -153,6 +153,9 @@ _FRAUD_AGENT_FILE   = str(_AGENTS_DIR / "fraud_agent.py")
 _PRICING_AGENT_FILE = str(_AGENTS_DIR / "pricing_agent.py")
 _CUSTOMER_AGENT_FILE = str(_AGENTS_DIR / "customer_agent.py")
 
+# Platform-level guardrails live one level up: ai_platform/guardrails.py
+_GUARDRAILS_FILE = str(_AGENTS_DIR.parent / "guardrails.py")
+
 _spec = _ilu.spec_from_file_location("shopstream_agent_model", _MODEL_FILE)
 _agent_module = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_agent_module)
@@ -205,6 +208,7 @@ with mlflow.start_run(run_name="shopstream-agent-registration"):
             _FRAUD_AGENT_FILE,
             _PRICING_AGENT_FILE,
             _CUSTOMER_AGENT_FILE,
+            _GUARDRAILS_FILE,
         ],
         registered_model_name=AGENT_MODEL_NAME,
         input_example=pd.DataFrame({"question": ["What was total revenue last 7 days?"]}),

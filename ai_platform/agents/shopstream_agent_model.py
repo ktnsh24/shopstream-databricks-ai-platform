@@ -18,6 +18,14 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
 from openai import OpenAI
 
+# Guardrails — Llama Guard input check + regex PII output redaction.
+# Dual import: package path works in production; bare module works inside MLflow serving
+# (MLflow adds the code_paths directory directly to sys.path).
+try:
+    from ai_platform.guardrails import check_input, check_output
+except ImportError:
+    from guardrails import check_input, check_output  # type: ignore[no-redef]
+
 CATALOG = "helix_databricks"
 DATABASE = "default"
 FORECAST_MODEL_UC = f"{CATALOG}.{DATABASE}.helix-revenue-forecast"
@@ -419,12 +427,22 @@ class ShopStreamAgent(mlflow.pyfunc.PythonModel):
         answers = []
         agents_used = []
         for q in questions:
+            # Layer 1: topic gatekeeper (LLM-based) — blocks off-topic questions
             allowed, reason = _run_gatekeeper(q, client)
             if not allowed:
                 answers.append(f"I can only answer ShopStream data questions. ({reason})")
                 agents_used.append("blocked")
                 continue
 
+            # Layer 2: Llama Guard (safety classifier) — blocks harmful/injected prompts.
+            # Falls back to passing through if the endpoint is unavailable.
+            safety_check = check_input(q)
+            if not safety_check.passed:
+                answers.append("I cannot help with that request.")
+                agents_used.append("blocked")
+                continue
+
+            # Layer 3: multi-agent routing → answer
             # Try multi-agent routing first; fall back to the single general agent
             # if the supervisor files are not bundled (e.g. during local testing).
             try:
@@ -434,10 +452,15 @@ class ShopStreamAgent(mlflow.pyfunc.PythonModel):
                     from supervisor import run as _supervisor_run  # type: ignore[no-redef]
 
                 result = _supervisor_run(q, client)
-                answers.append(result["answer"])
-                agents_used.append(result["agent"])
+                raw_answer = result["answer"]
+                agent_name = result["agent"]
             except Exception:
-                answers.append(_run_agent(q, client))
-                agents_used.append("general")
+                raw_answer = _run_agent(q, client)
+                agent_name = "general"
+
+            # Layer 4: output PII redaction — never blocks, only redacts
+            output_check = check_output(raw_answer)
+            answers.append(output_check.reason)
+            agents_used.append(agent_name)
 
         return pd.DataFrame({"answer": answers, "agent": agents_used})

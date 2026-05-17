@@ -165,3 +165,28 @@ resources:
       email_notifications:
         on_failure:
           - ${var.ALERT_EMAIL}
+
+    # ── AI: LLM monitoring ─────────────────────────────────────────────────
+    llm_monitoring:
+      name: helix_llm_monitoring
+      # Runs every 15 minutes — checks LLM error rate and response length drift.
+      # Reads from the Inference Table: hive_metastore.ml.shopstream_inference_logs
+      # Job fails (and sends email) if error rate > 5% or response length drifts > 50%.
+      # Prerequisite: Inference Tables must be enabled on the helix-shopstream-agent endpoint
+      # (Serving → helix-shopstream-agent → Edit → Inference Tables → Enable).
+      schedule:
+        quartz_cron_expression: "0 0/15 * * * ?"   # every 15 minutes
+        timezone_id: UTC
+        pause_status: UNPAUSED
+      tasks:
+        - task_key: check
+          notebook_task:
+            notebook_path: /Repos/helix/shopstream-databricks-ai-platform/databricks_notebooks/llm_monitoring
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+            autotermination_minutes: 10
+      email_notifications:
+        on_failure:
+          - ${var.ALERT_EMAIL}
