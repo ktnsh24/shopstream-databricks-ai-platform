@@ -10,11 +10,12 @@ async def invoke_agent(question: str) -> str:
     payload = {"dataframe_records": [{"question": question}]}
     logger.debug("invoke_agent endpoint={} question={!r}", settings.agent_endpoint_name, question)
 
-    async with make_client() as client:
-        response = await client.post(
-            f"/serving-endpoints/{settings.agent_endpoint_name}/invocations",
-            json=payload,
-        )
+    try:
+        async with make_client() as client:
+            response = await client.post(
+                f"/serving-endpoints/{settings.agent_endpoint_name}/invocations",
+                json=payload,
+            )
         response.raise_for_status()
     except Exception as exc:
         raise Exception(f"{exc} — body: {response.text[:500]}") from exc
