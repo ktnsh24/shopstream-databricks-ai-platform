@@ -774,6 +774,9 @@ class ShopStreamAgent(mlflow.pyfunc.PythonModel):
             else:
                 answers.append(_run_agent(q, client))
         return pd.DataFrame({"answer": answers})
+
+
+mlflow.models.set_model(ShopStreamAgent())
 '''
 
 _MODEL_FILE = "/tmp/shopstream_agent_model.py"
