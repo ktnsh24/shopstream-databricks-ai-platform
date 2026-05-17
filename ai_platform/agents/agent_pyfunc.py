@@ -79,37 +79,7 @@ logger = logging.getLogger(__name__)
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ## Step 4: Smoke test — run the agent locally before registering
-
-# COMMAND ----------
-
-test_client = _make_client()
-
-test_questions = [
-    "What was total revenue last 7 days?",
-    "What is the return policy for electronics?",
-]
-
-print("=== Smoke test ===")
-for q in test_questions:
-    allowed, reason = _run_gatekeeper(q, test_client)
-    print(f"\nQ: {q}")
-    print(f"Gatekeeper: {'ALLOWED' if allowed else f'BLOCKED ({reason})'}")
-    if allowed:
-        answer = _run_agent(q, test_client)
-        print(f"Answer: {answer[:300]}...")
-
-# COMMAND ----------
-# MAGIC %md
-# MAGIC ## Step 5: Register to Unity Catalog and set @champion alias
-
-# COMMAND ----------
-
-mlflow.set_registry_uri("databricks-uc")
-
-# COMMAND ----------
-# MAGIC %md
-# MAGIC ## Step 5: Load model class from committed file
+# MAGIC ## Step 4: Load model class from committed file
 # MAGIC
 # MAGIC MLflow cannot pickle a class defined in a notebook scope (cloudpickle fails).
 # MAGIC The fix: `ShopStreamAgent` lives in a committed `.py` file under `ai_platform/agents/`.
@@ -185,16 +155,35 @@ _run_gatekeeper = _agent_module._run_gatekeeper
 _run_agent = _agent_module._run_agent
 _make_client = _agent_module._make_client
 
-# Keep a local alias so the test cells below work unchanged
-CATALOG = "helix_databricks"
-DATABASE = "default"
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ## Step 5: Smoke test — run the agent locally before registering
 
-logger = logging.getLogger(__name__)
+# COMMAND ----------
 
+test_client = _make_client()
+
+test_questions = [
+    "What was total revenue last 7 days?",
+    "What is the return policy for electronics?",
+]
+
+print("=== Smoke test ===")
+for q in test_questions:
+    allowed, reason = _run_gatekeeper(q, test_client)
+    print(f"\nQ: {q}")
+    print(f"Gatekeeper: {'ALLOWED' if allowed else f'BLOCKED ({reason})'}")
+    if allowed:
+        answer = _run_agent(q, test_client)
+        print(f"Answer: {answer[:300]}...")
 
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ## Step 6: Register to Unity Catalog and set @champion alias
+
+# COMMAND ----------
+
+mlflow.set_registry_uri("databricks-uc")
 
 # COMMAND ----------
 with mlflow.start_run(run_name="shopstream-agent-registration"):
