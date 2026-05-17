@@ -16,7 +16,7 @@
 # COMMAND ----------
 
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringField, IntegerType, StringType
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
 # COMMAND ----------
 
