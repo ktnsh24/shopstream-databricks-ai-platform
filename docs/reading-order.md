@@ -8,7 +8,7 @@
 
 - [If you're brand new to the project](#if-youre-brand-new-to-the-project)
 - [If you're a Data Engineer](#if-youre-a-data-engineer)
-- [If you're an AI/ML Engineer (Ketan's track)](#if-youre-an-aiml-engineer-ketans-track)
+- [If you're an AI/ML Engineer](#if-youre-an-aiml-engineer)
 - [All Documents Index](#all-documents-index)
 
 ---
@@ -50,7 +50,7 @@ After reading the brand-new section above, continue with:
 
 ---
 
-## If you're an AI/ML Engineer (Ketan's track)
+## If you're an AI/ML Engineer
 
 After reading the brand-new section above, continue with:
 
