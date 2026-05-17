@@ -483,39 +483,57 @@ mlflow.set_registry_uri("databricks-uc")
 
 import importlib.util as _ilu
 import pathlib as _pathlib
+import glob as _glob
+import subprocess as _sp
 
 # --- Locate shopstream_agent_model.py ---
-# In a Databricks notebook there is no __file__. We derive the path from
-# the notebook's own workspace path, which always works regardless of username.
 def _find_model_file() -> str:
-    # Strategy 1: derive from the running notebook's workspace path
+    # Strategy 1: derive from the running notebook's workspace path (Databricks Repos)
     try:
         _nb_path = (
-            dbutils.notebook.entry_point  # noqa: F821  # Databricks global
+            dbutils.notebook.entry_point  # noqa: F821
             .getDbutils().notebook().getContext().notebookPath().get()
         )
-        # nb_path looks like /Workspace/Repos/<user>/shopstream-databricks-ai-platform/ai_platform/agents/agent_pyfunc
-        _candidate = _pathlib.Path("/Workspace") / _pathlib.Path(_nb_path).relative_to("/Workspace").parent / "shopstream_agent_model.py"
-        if _candidate.exists():
-            return str(_candidate)
-    except Exception:
-        pass
+        print(f"[DEBUG] notebookPath = {_nb_path!r}")
+        # notebookPath may or may not start with /Workspace
+        for _pfx in ("/Workspace", ""):
+            _c = _pathlib.Path(_pfx + _nb_path).parent / "shopstream_agent_model.py"
+            print(f"[DEBUG]   checking {_c} — exists={_c.exists()}")
+            if _c.exists():
+                return str(_c)
+    except Exception as _e:
+        print(f"[DEBUG] notebook context error: {_e}")
 
-    # Strategy 2: glob the entire Repos tree (catches any username)
-    import glob as _glob
-    _hits = _glob.glob("/Workspace/Repos/**/shopstream_agent_model.py", recursive=True)
-    if _hits:
-        return _hits[0]
+    # Strategy 2: glob common Databricks workspace roots
+    for _root in ("/Workspace", "/Repos"):
+        _hits = _glob.glob(f"{_root}/**/shopstream_agent_model.py", recursive=True)
+        if _hits:
+            print(f"[DEBUG] glob found: {_hits[0]}")
+            return _hits[0]
 
-    # Strategy 3: __file__ (works when run as a plain Python script locally)
+    # Strategy 3: shell find (most reliable — walks the real filesystem)
+    try:
+        _r = _sp.run(
+            ["find", "/Workspace", "/Repos", "-name", "shopstream_agent_model.py"],
+            capture_output=True, text=True, timeout=20,
+        )
+        _lines = [l.strip() for l in _r.stdout.splitlines() if l.strip()]
+        if _lines:
+            print(f"[DEBUG] shell find: {_lines[0]}")
+            return _lines[0]
+        print(f"[DEBUG] shell find stdout={_r.stdout!r}  stderr={_r.stderr!r}")
+    except Exception as _e:
+        print(f"[DEBUG] shell find error: {_e}")
+
+    # Strategy 4: __file__ (local dev / plain Python run)
     if "__file__" in dir():
         _local = _pathlib.Path(__file__).parent / "shopstream_agent_model.py"
         if _local.exists():
             return str(_local)
 
     raise FileNotFoundError(
-        "shopstream_agent_model.py not found. "
-        "Make sure the file is committed and the repo is synced in Databricks Repos."
+        "shopstream_agent_model.py not found. Check the [DEBUG] lines above to see "
+        "what paths were searched. Make sure the repo is synced in Databricks Repos."
     )
 
 _MODEL_FILE = _find_model_file()
