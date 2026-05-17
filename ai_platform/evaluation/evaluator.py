@@ -19,7 +19,7 @@
 
 # COMMAND ----------
 
-%pip install --quiet mlflow openai
+%pip install --quiet openai lightgbm
 
 # COMMAND ----------
 
