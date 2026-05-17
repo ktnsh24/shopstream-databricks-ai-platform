@@ -31,6 +31,10 @@ import mlflow
 import pandas as pd
 from openai import OpenAI
 import os
+import importlib.util as _ilu
+import pathlib as _pathlib
+import glob as _glob
+import subprocess as _sp
 
 # COMMAND ----------
 
@@ -58,10 +62,37 @@ print(golden_df[["question_id", "category", "question"]].to_string(index=False))
 # COMMAND ----------
 
 mlflow.set_registry_uri("databricks-uc")
-# unwrap_python_model() bypasses MLflow input schema enforcement —
-# we control both ends here so enforcement adds no value and breaks on dtype mismatches.
-_pyfunc_model = mlflow.pyfunc.load_model(f"models:/{AGENT_MODEL_NAME}@champion")
-agent = _pyfunc_model.unwrap_python_model()
+
+# Load ShopStreamAgent directly from the committed source file — no MLflow schema enforcement.
+def _find_model_file() -> str:
+    try:
+        _nb_path = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()  # noqa: F821
+        for _pfx in ("/Workspace", ""):
+            _c = _pathlib.Path(_pfx + _nb_path).parent.parent / "agents" / "shopstream_agent_model.py"
+            if _c.exists():
+                return str(_c)
+    except Exception:
+        pass
+    for _root in ("/Workspace", "/Repos"):
+        _hits = _glob.glob(f"{_root}/**/shopstream_agent_model.py", recursive=True)
+        if _hits:
+            return _hits[0]
+    try:
+        _r = _sp.run(["find", "/Workspace", "/Repos", "-name", "shopstream_agent_model.py"],
+                     capture_output=True, text=True, timeout=20)
+        _lines = [l.strip() for l in _r.stdout.splitlines() if l.strip()]
+        if _lines:
+            return _lines[0]
+    except Exception:
+        pass
+    raise FileNotFoundError("shopstream_agent_model.py not found. Sync the repo in Databricks Repos.")
+
+_model_file = _find_model_file()
+_spec = _ilu.spec_from_file_location("shopstream_agent_model", _model_file)
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+agent = _mod.ShopStreamAgent()
+print(f"Loaded ShopStreamAgent from: {_model_file}")
 
 input_df = pd.DataFrame({"question": golden_df["question"].astype(str).tolist()})
 predictions = agent.predict(None, input_df)
