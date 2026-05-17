@@ -23,7 +23,6 @@ from databricks.sdk.service.vectorsearch import (
     VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
     EmbeddingSourceColumn,
-    ManagedVectorIndexSpec,
 )
 import time
 
