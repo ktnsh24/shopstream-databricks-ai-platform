@@ -15,10 +15,12 @@ A production-grade AI data platform built on Azure Databricks. Business teams as
 | | |
 |---|---|
 | **Deploy from scratch** | [docs/setup-and-tooling/getting-started.md](docs/setup-and-tooling/getting-started.md) |
+| **Resume after shutdown** | [docs/setup-and-tooling/resume-from-shutdown.md](docs/setup-and-tooling/resume-from-shutdown.md) |
 | **Architecture** | [docs/architecture-and-design/system-design.md](docs/architecture-and-design/system-design.md) |
 | **Repo structure** | [docs/architecture-and-design/repo-structure.md](docs/architecture-and-design/repo-structure.md) |
 | **Hands-on labs** | [docs/hands-on-labs/hands-on-labs-overview.md](docs/hands-on-labs/hands-on-labs-overview.md) |
 | **Reading order** | [docs/reading-order.md](docs/reading-order.md) |
+| **API examples** | [docs/reference/example-conversations.md](docs/reference/example-conversations.md) |
 
 ## Current status
 
@@ -30,10 +32,10 @@ A production-grade AI data platform built on Azure Databricks. Business teams as
 | 03 | ML platform (MLflow, Feature Store) | ⏳ Planned |
 | 04 | AI platform (agent, RAG, Vector Search) | ✅ Done |
 | 05 | API Gateway (FastAPI on Container Apps) | ✅ Done |
-| 06 | Multi-agent supervisor | 🔨 In progress |
+| 06 | Multi-agent supervisor | ✅ Done |
 | 07 | MCP Server | ⏳ Planned |
-| 08 | Observability | ⏳ Planned |
-| 09 | Production patterns | ⏳ Planned |
+| 08 | Observability (guardrails, monitoring) | ✅ Done |
+| 09 | Production patterns (gatekeeper, retry, structured output) | ✅ Done |
 
 ## Tech stack
 
