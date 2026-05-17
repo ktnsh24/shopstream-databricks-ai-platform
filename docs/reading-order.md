@@ -7,7 +7,7 @@
 ## Table of Contents
 
 - [If you're brand new to the project](#if-youre-brand-new-to-the-project)
-- [If you're a Data Engineer (wife's track)](#if-youre-a-data-engineer-wifes-track)
+- [If you're a Data Engineer](#if-youre-a-data-engineer)
 - [If you're an AI/ML Engineer (Ketan's track)](#if-youre-an-aiml-engineer-ketans-track)
 - [All Documents Index](#all-documents-index)
 
@@ -35,7 +35,7 @@ Read these first, in order. Takes about 45 minutes.
 
 ---
 
-## If you're a Data Engineer (wife's track)
+## If you're a Data Engineer
 
 After reading the brand-new section above, continue with:
 

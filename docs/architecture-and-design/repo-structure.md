@@ -398,9 +398,9 @@ databricks_apps/    →  data_platform/          (reads Gold tables directly)
 
 ## Ownership Map
 
-| Folder / Repo | Primary owner | Wife's scope (DE role) | Ketan's scope (AI/ML role) |
+| Folder / Repo | Primary owner | DE scope | AI/ML scope |
 |---|---|---|---|
-| `shopstream-databricks-data-platform` | Wife | ✅ Full ownership | ✅ Review + pipeline input |
+| `shopstream-databricks-data-platform` | Data Engineer | ✅ Full ownership | ✅ Review + pipeline input |
 | `shopstream-databricks-mcp-server` | Ketan | Read-only | ✅ Full ownership |
 | `data_platform/` | Both | ✅ Full ownership | ✅ Review + pipeline input |
 | `ml_platform/features/` | Both | ✅ Feature engineering | ✅ Feature design |
