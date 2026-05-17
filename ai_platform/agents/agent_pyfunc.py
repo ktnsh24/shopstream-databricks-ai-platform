@@ -73,11 +73,7 @@ logger = logging.getLogger(__name__)
 # MAGIC Import directly from there — no duplication.
 
 # COMMAND ----------
-
-# Pull everything needed for the smoke test and registration from the loaded module
-_run_gatekeeper = _agent_module._run_gatekeeper
-_run_agent = _agent_module._run_agent
-_make_client = _agent_module._make_client
+# NOTE: _agent_module is loaded in the cell below (Step 5). Run cells top to bottom.
 
 
 
@@ -183,6 +179,11 @@ _agent_module = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_agent_module)
 ShopStreamAgentClass = _agent_module.ShopStreamAgent
 print(f"Loaded ShopStreamAgent from: {_MODEL_FILE}")
+
+# Pull helpers into local scope for smoke test cells below
+_run_gatekeeper = _agent_module._run_gatekeeper
+_run_agent = _agent_module._run_agent
+_make_client = _agent_module._make_client
 
 # Keep a local alias so the test cells below work unchanged
 CATALOG = "helix_databricks"
