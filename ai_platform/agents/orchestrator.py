@@ -24,11 +24,22 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
+import time
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import wraps
 from typing import Any
 
-from openai import OpenAI
+# openai is bundled in the Databricks runtime but not always installed locally.
+# Guard the import so the module is importable in unit tests without openai.
+try:
+    from openai import APIStatusError, OpenAI, RateLimitError
+except ImportError:  # pragma: no cover
+    OpenAI = None  # type: ignore[assignment,misc]
+    RateLimitError = Exception  # type: ignore[assignment,misc]
+    APIStatusError = Exception  # type: ignore[assignment,misc]
+from pydantic import BaseModel, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +53,99 @@ MAIN_AGENT_MODEL = "databricks-meta-llama-3-3-70b-instruct"
 MAX_TOOL_ROUNDS = 10  # safety cap — prevents runaway loops
 
 # ---------------------------------------------------------------------------
+# Pattern 2: Retry with exponential backoff
+# ---------------------------------------------------------------------------
+# DE parallel: the driver retries a failed delivery at 2 min, 4 min, 8 min
+# before marking it undeliverable. The customer never sees a one-off 429.
+
+
+def retry_with_backoff(max_retries: int = 3, base_delay: float = 2.0):
+    """Decorator: retry on transient LLM API errors (429, 503) with jittered
+    exponential backoff.
+
+    Wait times: base_delay, base_delay×2, base_delay×4, ...
+    A random jitter of up to 1 second is added to prevent thundering herd
+    (multiple workers all retrying at the same moment after a shared outage).
+
+    Fails closed after max_retries — re-raises the last exception so the caller
+    decides how to surface the error to the user.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exc: Exception | None = None
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (RateLimitError, APIStatusError) as exc:
+                    last_exc = exc
+                    if attempt == max_retries:
+                        break
+                    wait = base_delay * (2**attempt) + random.uniform(0, 1)
+                    logger.warning(
+                        "LLM call failed (attempt %d/%d): %s — retrying in %.1fs",
+                        attempt + 1,
+                        max_retries + 1,
+                        exc,
+                        wait,
+                    )
+                    time.sleep(wait)
+            raise last_exc  # type: ignore[misc]
+
+        return wrapper
+
+    return decorator
+
+
+# ---------------------------------------------------------------------------
+# Pattern 3: Structured output — Pydantic schema for the final LLM answer
+# ---------------------------------------------------------------------------
+# DE parallel: the parcel manifest is a fixed printed form — the sender cannot
+# write freehand notes where the destination postcode should be.
+
+
+class AgentAnswer(BaseModel):
+    """Structured final answer from the ShopStream agent.
+
+    The LLM is instructed to produce output matching this schema via
+    response_format={"type": "json_schema", "strict": True}.
+    Pydantic validates the response on the way back — if the LLM produces
+    invalid JSON or missing required fields, we fall back to raw content.
+    """
+
+    summary: str = Field(description="One to three sentence plain-language answer to the question.")
+    data_source: str = Field(
+        description=(
+            "Which tool or table provided the data. "
+            "E.g. 'query_metrics: revenue_daily' or 'search_documents: product_docs'. "
+            "Use 'none' if the answer came from model knowledge only."
+        )
+    )
+    confidence: str = Field(
+        description="How confident is this answer? One of: high, medium, low.",
+        pattern="^(high|medium|low)$",
+    )
+    chart_spec: dict | None = Field(
+        default=None,
+        description=(
+            "Vega-Lite chart specification if the question asked for a chart. " "Null otherwise."
+        ),
+    )
+
+
+def _parse_structured_response(raw_content: str) -> AgentAnswer:
+    """Parse and validate the LLM's JSON response into an AgentAnswer.
+
+    Raises:
+        json.JSONDecodeError  — content is not valid JSON at all.
+        ValidationError       — JSON parsed but doesn't match AgentAnswer schema.
+    """
+    data = json.loads(raw_content)
+    return AgentAnswer.model_validate(data)
+
+
+# ---------------------------------------------------------------------------
 # Tool registry  (stubs will be replaced by real implementations per tool file)
 # ---------------------------------------------------------------------------
 
@@ -51,12 +155,12 @@ MAX_TOOL_ROUNDS = 10  # safety cap — prevents runaway loops
 #   parameters : dict           — JSON Schema for arguments
 #   run(args)  : str            — executes the tool, returns a string result
 
-from ai_platform.agents.tools.query_metrics import QueryMetricsTool  # noqa: E402
-from ai_platform.agents.tools.search_documents import SearchDocumentsTool  # noqa: E402
+from ai_platform.agents.tools.alert_tool import AlertTool  # noqa: E402
 from ai_platform.agents.tools.forecast import ForecastTool  # noqa: E402
 from ai_platform.agents.tools.generate_chart import GenerateChartTool  # noqa: E402
+from ai_platform.agents.tools.query_metrics import QueryMetricsTool  # noqa: E402
+from ai_platform.agents.tools.search_documents import SearchDocumentsTool  # noqa: E402
 from ai_platform.agents.tools.text_to_sql import TextToSqlTool  # noqa: E402
-from ai_platform.agents.tools.alert_tool import AlertTool  # noqa: E402
 
 _TOOLS: dict[str, Any] = {}
 
@@ -186,6 +290,7 @@ def run_gatekeeper(question: str, client: OpenAI) -> GatekeeperResult:
 # Tool-calling helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_tool_specs() -> list[dict]:
     """Build the OpenAI-format tool spec list from the registered tools."""
     return [
@@ -241,6 +346,9 @@ class AgentResponse:
     tool_calls_made: list[str] = field(default_factory=list)
     blocked: bool = False
     block_reason: str = ""
+    data_source: str = ""
+    confidence: str = ""
+    chart_spec: dict | None = None
 
 
 def _run_agent_loop(question: str, chat_history: list[dict], client: OpenAI) -> AgentResponse:
@@ -262,14 +370,32 @@ def _run_agent_loop(question: str, chat_history: list[dict], client: OpenAI) -> 
     ]
     tool_calls_made: list[str] = []
 
-    for round_number in range(1, MAX_TOOL_ROUNDS + 1):
-        response = client.chat.completions.create(
+    @retry_with_backoff(max_retries=3, base_delay=2.0)
+    def _call_llm(msgs, specs):
+        """Single LLM API call wrapped with retry logic.
+
+        Defined inside _run_agent_loop so it is re-created per invocation.
+        Wrapping only this call (not the whole loop) means a transient failure
+        retries just that one API call — it doesn't lose accumulated tool history.
+        """
+        return client.chat.completions.create(
             model=MAIN_AGENT_MODEL,
-            messages=messages,
-            tools=tool_specs,
+            messages=msgs,
+            tools=specs,
             tool_choice="auto",
             temperature=0,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "agent_answer",
+                    "schema": AgentAnswer.model_json_schema(),
+                    "strict": True,
+                },
+            },
         )
+
+    for round_number in range(1, MAX_TOOL_ROUNDS + 1):
+        response = _call_llm(messages, tool_specs)
 
         choice = response.choices[0]
         assistant_message = choice.message
@@ -279,11 +405,25 @@ def _run_agent_loop(question: str, chat_history: list[dict], client: OpenAI) -> 
 
         # No tool call → the model has its final answer
         if not assistant_message.tool_calls:
-            logger.info("Agent finished after %d rounds, %d tool calls", round_number, len(tool_calls_made))
-            return AgentResponse(
-                answer=assistant_message.content or "",
-                tool_calls_made=tool_calls_made,
+            logger.info(
+                "Agent finished after %d rounds, %d tool calls", round_number, len(tool_calls_made)
             )
+            raw_content = assistant_message.content or ""
+            try:
+                parsed = _parse_structured_response(raw_content)
+                return AgentResponse(
+                    answer=parsed.summary,
+                    tool_calls_made=tool_calls_made,
+                    data_source=parsed.data_source,
+                    confidence=parsed.confidence,
+                    chart_spec=parsed.chart_spec,
+                )
+            except (ValidationError, json.JSONDecodeError) as exc:
+                logger.warning("Structured output parsing failed: %s — returning raw content", exc)
+                return AgentResponse(
+                    answer=raw_content,
+                    tool_calls_made=tool_calls_made,
+                )
 
         # Dispatch each tool the model requested
         for tc in assistant_message.tool_calls:
@@ -320,6 +460,7 @@ def _run_agent_loop(question: str, chat_history: list[dict], client: OpenAI) -> 
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def _build_client() -> OpenAI:
     """Build an OpenAI client that points at the Databricks serving endpoints."""
