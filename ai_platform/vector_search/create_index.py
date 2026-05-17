@@ -21,8 +21,6 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.vectorsearch import (
     EndpointType,
     VectorIndexType,
-    DeltaSyncVectorIndexSpecRequest,
-    EmbeddingSourceColumn,
 )
 import time
 
@@ -91,20 +89,27 @@ if VS_INDEX in existing_indexes:
     print(f"Index '{VS_INDEX}' already exists — skipping creation")
 else:
     print(f"Creating index '{VS_INDEX}'...")
-    w.vector_search_indexes.create_index(
-        endpoint_name=VS_ENDPOINT,
-        name=VS_INDEX,
-        index_type=VectorIndexType.DELTA_SYNC,
-        delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
-            source_table=SOURCE_TABLE,
-            pipeline_type="TRIGGERED",
-            embedding_source_columns=[
-                EmbeddingSourceColumn(
-                    name=EMBEDDING_SOURCE_COLUMN,
-                    model_endpoint_name=EMBEDDING_MODEL,
-                )
-            ],
-        ),
+    # Use the underlying REST API directly to avoid EmbeddingSourceColumn
+    # dataclass parameter name differences across Databricks SDK versions.
+    w.api_client.do(
+        "POST",
+        "/api/2.0/vector-search/indexes",
+        body={
+            "name": VS_INDEX,
+            "endpoint_name": VS_ENDPOINT,
+            "primary_key": PRIMARY_KEY,
+            "index_type": VectorIndexType.DELTA_SYNC.value,
+            "delta_sync_index_spec": {
+                "source_table": SOURCE_TABLE,
+                "pipeline_type": "TRIGGERED",
+                "embedding_source_columns": [
+                    {
+                        "name": EMBEDDING_SOURCE_COLUMN,
+                        "embedding_model_endpoint_name": EMBEDDING_MODEL,
+                    }
+                ],
+            },
+        },
     )
     print(f"Index '{VS_INDEX}' created — waiting for it to come online...")
 
