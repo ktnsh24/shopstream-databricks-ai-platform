@@ -39,17 +39,12 @@ Read these first, in order. Takes about 45 minutes.
 
 After reading the brand-new section above, continue with:
 
-### Level 1 — Understand the data layer
-
-1. [data-model.md](architecture-and-design/data-model.md) — All Bronze, Silver, Gold table schemas; column names, types, business meaning
-2. [azure-setup.md](setup-and-tooling/azure-setup.md) — Terraform init + apply, Key Vault config, ADLS Gen2 folder structure
-
-### Level 2 — Run the data labs
+### Level 1 — Run the data labs
 
 1. [hands-on-labs-overview.md](hands-on-labs/hands-on-labs-overview.md) — Read the overview and cost guardrails
 2. [hands-on-labs-data-platform.md](hands-on-labs/hands-on-labs-data-platform.md) — DP-01 through DP-10 (all 10 data engineering labs)
 
-### Level 3 — Run the ML labs
+### Level 2 — Run the ML labs
 
 1. [hands-on-labs-ml-platform.md](hands-on-labs/hands-on-labs-ml-platform.md) — ML-01 through ML-05
 
@@ -59,28 +54,7 @@ After reading the brand-new section above, continue with:
 
 After reading the brand-new section above, continue with:
 
-### Level 1 — Understand the AI layer
-
-1. [rag-pipeline.md](ai-engineering/rag-pipeline.md) — How documents get chunked, embedded, and indexed; how Vector Search stays in sync with Delta
-2. [agent-framework.md](ai-engineering/agent-framework.md) — How the agent orchestrator works, what each tool does, how tool selection happens
-3. [multi-agent.md](ai-engineering/multi-agent.md) — How the supervisor routes questions to specialist sub-agents (fraud / pricing / customer)
-4. [mlflow-tracking.md](ai-engineering/mlflow-tracking.md) — Experiment tracking, model registry, model aliases, PyFunc wrappers
-5. [evaluation.md](ai-engineering/evaluation.md) — Rule-based vs LLM-as-judge; how to interpret faithfulness and relevance scores
-6. [observability.md](ai-engineering/observability.md) — Inference Tables, Lakehouse Monitoring, Llama Guard guardrails, drift detection
-
-### Level 2 — Production patterns
-
-1. [production-patterns.md](ai-engineering/production-patterns.md) — Gatekeeper (cheap model blocks bad inputs), retry with backoff, structured output with Pydantic
-
-### Level 3 — Understand the MCP server
-
-1. [mcp-server.md](ai-engineering/mcp-server.md) — How to connect an AI client (Claude Desktop, Copilot) to live Databricks data via MCP tools
-
-### Level 3 — Understand the API
-
-1. [api-reference.md](architecture-and-design/api-reference.md) — Every endpoint: request schema, response schema, worked examples
-
-### Level 4 — Run all labs
+### Level 1 — Run all labs
 
 1. [hands-on-labs-overview.md](hands-on-labs/hands-on-labs-overview.md) — Read the overview and cost guardrails
 2. [hands-on-labs-data-platform.md](hands-on-labs/hands-on-labs-data-platform.md) — DP-01 through DP-10 (do these first — foundation)
@@ -98,29 +72,13 @@ After reading the brand-new section above, continue with:
 |---|---|---|
 | [system-design.md](architecture-and-design/system-design.md) ⭐ | Full architecture, data flows, tech choices, cost table | Everyone |
 | [repo-structure.md](architecture-and-design/repo-structure.md) | Every folder and file, ownership map | Everyone |
-| [data-model.md](architecture-and-design/data-model.md) | Bronze/Silver/Gold table schemas, column meanings | Data Engineers |
-| [api-reference.md](architecture-and-design/api-reference.md) | All 7 API endpoints with request/response schemas | AI/ML Engineers |
 
 ### Setup & Tooling
 
 | Document | What it covers | Audience |
 |---|---|---|
 | [getting-started.md](setup-and-tooling/getting-started.md) | First-time local setup | Everyone |
-| [azure-setup.md](setup-and-tooling/azure-setup.md) | Terraform, Key Vault, ADLS, Event Hubs | Data Engineers |
-| [databricks-setup.md](setup-and-tooling/databricks-setup.md) | Unity Catalog, secret scopes, cluster policies | Both |
-
-### AI Engineering
-
-| Document | What it covers | Audience |
-|---|---|---|
-| [rag-pipeline.md](ai-engineering/rag-pipeline.md) | Document ingestion, chunking, embedding, vector index | AI/ML Engineers |
-| [agent-framework.md](ai-engineering/agent-framework.md) | Multi-tool agent, tool selection, structured output | AI/ML Engineers |
-| [multi-agent.md](ai-engineering/multi-agent.md) | Supervisor + specialist sub-agents (fraud / pricing / customer) | AI/ML Engineers |
-| [mlflow-tracking.md](ai-engineering/mlflow-tracking.md) | Experiments, model registry, PyFunc, Model Serving | AI/ML Engineers |
-| [evaluation.md](ai-engineering/evaluation.md) | Rule-based eval, LLM-as-judge, MLflow Evaluate | AI/ML Engineers |
-| [observability.md](ai-engineering/observability.md) | Inference Tables, Lakehouse Monitoring, Llama Guard, drift detection | AI/ML Engineers |
-| [production-patterns.md](ai-engineering/production-patterns.md) | Gatekeeper, retry with backoff, structured output — production-hardened patterns | AI/ML Engineers |
-| [mcp-server.md](ai-engineering/mcp-server.md) | MCP protocol, tool registration, Claude Desktop integration | AI/ML Engineers |
+| [resume-from-shutdown.md](setup-and-tooling/resume-from-shutdown.md) | Recreate Vector Search + Model Serving after cost shutdown | AI/ML Engineers |
 
 ### Hands-on Labs
 
