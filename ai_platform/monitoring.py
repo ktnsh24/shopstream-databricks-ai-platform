@@ -28,7 +28,7 @@ from pyspark.sql import functions as F
 # Config
 # ---------------------------------------------------------------------------
 
-INFERENCE_TABLE = "hive_metastore.ml.shopstream_inference_logs"
+INFERENCE_TABLE = "helix_databricks.ml.shopstream_inference_logs"
 
 # Error rate: alert if more than 5% of requests in the last 15 minutes return HTTP 4xx/5xx.
 ERROR_RATE_THRESHOLD = 0.05

@@ -13,8 +13,7 @@ variable "vaishnavi_email" {
 # Workspace entitlements — required to log in and run notebooks/jobs
 # ------------------------------------------------------------------
 resource "databricks_user" "vaishnavi" {
-  user_name    = var.vaishnavi_email
-  entitlements = ["workspace-access", "databricks-sql-access"]
+  user_name = var.vaishnavi_email
 }
 
 # ------------------------------------------------------------------
@@ -59,5 +58,32 @@ resource "databricks_grants" "gold_catalog" {
   grant {
     principal  = var.vaishnavi_email
     privileges = ["USE_CATALOG", "CREATE_SCHEMA", "USE_SCHEMA", "CREATE_TABLE", "SELECT", "MODIFY"]
+  }
+}
+
+# ------------------------------------------------------------------
+# External locations — READ/WRITE FILES so notebooks can access ADLS
+# ------------------------------------------------------------------
+resource "databricks_grants" "bronze_location" {
+  external_location = "helix-bronze"
+  grant {
+    principal  = var.vaishnavi_email
+    privileges = ["READ_FILES", "WRITE_FILES", "CREATE_EXTERNAL_TABLE"]
+  }
+}
+
+resource "databricks_grants" "silver_location" {
+  external_location = "helix-silver"
+  grant {
+    principal  = var.vaishnavi_email
+    privileges = ["READ_FILES", "WRITE_FILES", "CREATE_EXTERNAL_TABLE"]
+  }
+}
+
+resource "databricks_grants" "gold_location" {
+  external_location = "helix-gold"
+  grant {
+    principal  = var.vaishnavi_email
+    privileges = ["READ_FILES", "WRITE_FILES", "CREATE_EXTERNAL_TABLE"]
   }
 }

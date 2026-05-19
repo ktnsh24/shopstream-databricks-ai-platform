@@ -14,7 +14,7 @@
 # MAGIC **Prerequisites:**
 # MAGIC - Inference Tables enabled on `helix-shopstream-agent`
 # MAGIC   (Serving → helix-shopstream-agent → Edit → Inference Tables → Enable)
-# MAGIC - Table exists: `hive_metastore.ml.shopstream_inference_logs`
+# MAGIC - Table exists: `helix_databricks.ml.shopstream_inference_logs`
 # MAGIC
 # MAGIC **Schedule:** runs every 15 minutes via `helix_llm_monitoring` Workflows job
 

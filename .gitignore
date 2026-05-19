@@ -18,6 +18,9 @@ terraform.tfvars
 .terraform/
 .terraform.lock.hcl
 
+# Databricks/TF state lock files
+*.lock.info
+
 # Lab outputs — may contain ingested data
 lab_results/
 data_generators/output/
